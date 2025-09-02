@@ -8,7 +8,12 @@
     "dev": "nodemon server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["express", "node", "postgresql", "backend"],
+  "keywords": [
+    "express",
+    "node",
+    "postgresql",
+    "backend"
+  ],
   "author": "Your Name",
   "license": "ISC",
   "description": "Backend API for AgriConnect using Node.js, Express, and PostgreSQL",
