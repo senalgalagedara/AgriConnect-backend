@@ -10,6 +10,11 @@ const provinceRoutes = require('./routes/provinceRoutes');
 const productRoutes = require('./routes/productRoutes');
 const farmerRoutes = require('./routes/farmerRoutes');
 const supplierRoutes = require('./routes/supplierRoutes');
+const cartRoutes = require('./routes/cartRoutes');
+const orderRoutes = require('./routes/orderRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+
 
 // Load environment variables
 dotenv.config();
@@ -35,6 +40,11 @@ app.use('/api/provinces', provinceRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/farmers', farmerRoutes);
 app.use('/api/suppliers', supplierRoutes);
+app.use('/api/cart', cartRoutes);
+app.use('/api/orders', orderRoutes);
+app.use('/api/payment', paymentRoutes);
+app.use('/api/admin', adminRoutes);
+
 
 // Health check route
 app.get('/api/health', async (req, res) => {
