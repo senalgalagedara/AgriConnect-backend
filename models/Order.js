@@ -1,5 +1,5 @@
 // models/Order.js
-const pool = require('../config/db');
+const pool = require('../config/database');
 const { TAX_RATE, SHIPPING_FEE } = require('./Cart');
 
 async function createFromCart(userId, contact, shipping) {

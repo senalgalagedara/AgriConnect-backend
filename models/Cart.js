@@ -1,5 +1,5 @@
 // models/Cart.js
-const pool = require('../config/db');
+const pool = require('../config/database');
 
 const TAX_RATE = 0.065;
 const SHIPPING_FEE = 0;
