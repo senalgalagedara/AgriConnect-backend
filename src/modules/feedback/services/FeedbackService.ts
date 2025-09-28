@@ -49,35 +49,28 @@ export class FeedbackService {
    */
   static async createFeedback(feedbackData: CreateFeedbackRequest): Promise<Feedback> {
     try {
-      // Validate required fields
-      if (!feedbackData.user_type) {
-        throw new Error('User type is required');
+      // Validate required fields for frontend compatibility
+      if (!feedbackData.rating || feedbackData.rating < 1 || feedbackData.rating > 5) {
+        throw new Error('Rating is required and must be between 1 and 5');
       }
       
-      if (!feedbackData.category) {
-        throw new Error('Category is required');
+      if (!feedbackData.comment || feedbackData.comment.trim().length === 0) {
+        throw new Error('Comment is required');
       }
       
-      if (!feedbackData.subject || feedbackData.subject.trim().length === 0) {
-        throw new Error('Subject is required');
+      // Validate optional meta field
+      if (feedbackData.meta && typeof feedbackData.meta !== 'object') {
+        throw new Error('Meta must be an object');
       }
       
-      if (!feedbackData.message || feedbackData.message.trim().length === 0) {
-        throw new Error('Message is required');
+      // Validate comment length
+      if (feedbackData.comment.length > 5000) {
+        throw new Error('Comment must not exceed 5000 characters');
       }
 
-      // Validate rating if provided
-      if (feedbackData.rating && (feedbackData.rating < 1 || feedbackData.rating > 5)) {
-        throw new Error('Rating must be between 1 and 5');
-      }
-
-      // Validate subject and message lengths
-      if (feedbackData.subject.length > 255) {
+      // Validate optional subject length
+      if (feedbackData.subject && feedbackData.subject.length > 255) {
         throw new Error('Subject must not exceed 255 characters');
-      }
-
-      if (feedbackData.message.length > 5000) {
-        throw new Error('Message must not exceed 5000 characters');
       }
 
       return await FeedbackModel.create(feedbackData);

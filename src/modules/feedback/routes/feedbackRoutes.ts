@@ -6,32 +6,41 @@ const router = Router();
 
 // Validation middleware for creating feedback
 const validateCreateFeedback = [
+  // Rating is required from frontend
+  body('rating')
+    .isInt({ min: 1, max: 5 })
+    .withMessage('Rating must be an integer between 1 and 5'),
+  
+  // Comment is required from frontend (maps to message in backend)
+  body('comment')
+    .trim()
+    .notEmpty()
+    .withMessage('Comment is required')
+    .isLength({ min: 1, max: 5000 })
+    .withMessage('Comment must be between 1 and 5000 characters'),
+  
+  // Meta data is optional
+  body('meta')
+    .optional()
+    .isObject()
+    .withMessage('Meta must be an object'),
+  
+  // Backend fields are optional with defaults
   body('user_type')
+    .optional()
     .isIn(['farmer', 'supplier', 'driver', 'admin', 'anonymous'])
     .withMessage('Invalid user type'),
   
   body('category')
+    .optional()
     .isIn(['general', 'technical', 'service', 'suggestion', 'complaint'])
     .withMessage('Invalid category'),
   
   body('subject')
-    .trim()
-    .notEmpty()
-    .withMessage('Subject is required')
-    .isLength({ min: 5, max: 255 })
-    .withMessage('Subject must be between 5 and 255 characters'),
-  
-  body('message')
-    .trim()
-    .notEmpty()
-    .withMessage('Message is required')
-    .isLength({ min: 10, max: 5000 })
-    .withMessage('Message must be between 10 and 5000 characters'),
-  
-  body('rating')
     .optional()
-    .isInt({ min: 1, max: 5 })
-    .withMessage('Rating must be between 1 and 5'),
+    .trim()
+    .isLength({ max: 255 })
+    .withMessage('Subject cannot exceed 255 characters'),
   
   body('priority')
     .optional()
