@@ -127,13 +127,15 @@ export interface UpdateSupplierRequest extends Partial<CreateSupplierRequest> {
 export interface Feedback {
   id: number;
   user_id?: number;
-  user_type: 'farmer' | 'supplier' | 'driver' | 'admin' | 'anonymous';
-  category: 'general' | 'technical' | 'service' | 'suggestion' | 'complaint';
-  subject: string;
-  message: string;
-  rating?: number; // 1-5 rating
+  rating: number; // Required field from frontend (1-5)
+  comment: string; // Frontend calls it 'comment' instead of 'message'
+  meta?: Record<string, any>; // Frontend meta data (orderId, userId, etc.)
+  // Keep backend-specific fields
+  user_type?: 'farmer' | 'supplier' | 'driver' | 'admin' | 'anonymous';
+  category?: 'general' | 'technical' | 'service' | 'suggestion' | 'complaint';
+  subject?: string; // Made optional since frontend focuses on rating + comment
   status: 'pending' | 'in_progress' | 'resolved' | 'closed';
-  priority: 'low' | 'medium' | 'high' | 'urgent';
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
   attachments?: string[]; // URLs to uploaded files
   created_at: Date;
   updated_at: Date;
@@ -144,13 +146,35 @@ export interface Feedback {
 
 export interface CreateFeedbackRequest {
   user_id?: number;
-  user_type: 'farmer' | 'supplier' | 'driver' | 'admin' | 'anonymous';
-  category: 'general' | 'technical' | 'service' | 'suggestion' | 'complaint';
-  subject: string;
-  message: string;
-  rating?: number;
+  rating: number; // Required from frontend
+  comment: string; // Frontend calls it 'comment'
+  meta?: Record<string, any>; // Frontend meta data
+  // Optional backend fields with defaults
+  user_type?: 'farmer' | 'supplier' | 'driver' | 'admin' | 'anonymous';
+  category?: 'general' | 'technical' | 'service' | 'suggestion' | 'complaint';
+  subject?: string;
   priority?: 'low' | 'medium' | 'high' | 'urgent';
   attachments?: string[];
+}
+
+// Frontend-compatible interface for client responses
+export interface FeedbackData {
+  rating: number;
+  comment: string;
+  meta?: Record<string, any>;
+}
+
+// Response interface that includes both frontend and backend data
+export interface FeedbackResponse extends FeedbackData {
+  id: number;
+  user_id?: number;
+  user_type?: string;
+  category?: string;
+  subject?: string;
+  status: string;
+  priority?: string;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface UpdateFeedbackRequest {

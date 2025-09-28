@@ -4,6 +4,17 @@ import { Feedback, CreateFeedbackRequest, UpdateFeedbackRequest, FeedbackFilter,
 export class FeedbackModel {
   
   /**
+   * Transform database record to match frontend expectations
+   */
+  private static transformFeedback(dbRecord: any): Feedback {
+    return {
+      ...dbRecord,
+      comment: dbRecord.message, // Map 'message' to 'comment' for frontend
+      meta: dbRecord.meta ? (typeof dbRecord.meta === 'string' ? JSON.parse(dbRecord.meta) : dbRecord.meta) : undefined
+    };
+  }
+  
+  /**
    * Get all feedback with optional filtering and pagination
    */
   static async findAll(
@@ -154,7 +165,8 @@ export class FeedbackModel {
     }
 
     const result = await database.query(query, params);
-    return { feedback: result.rows, total };
+    const transformedFeedback = result.rows.map(row => this.transformFeedback(row));
+    return { feedback: transformedFeedback, total };
   }
 
   /**
@@ -174,7 +186,7 @@ export class FeedbackModel {
     `;
     
     const result = await database.query(query, [id]);
-    return result.rows.length > 0 ? result.rows[0] : null;
+    return result.rows.length > 0 ? this.transformFeedback(result.rows[0]) : null;
   }
 
   /**
@@ -184,24 +196,32 @@ export class FeedbackModel {
     const query = `
       INSERT INTO feedback (
         user_id, user_type, category, subject, message, 
-        rating, priority, attachments
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        rating, priority, attachments, meta
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
     `;
     
     const values = [
       feedbackData.user_id || null,
-      feedbackData.user_type,
-      feedbackData.category,
-      feedbackData.subject,
-      feedbackData.message,
-      feedbackData.rating || null,
+      feedbackData.user_type || 'anonymous',
+      feedbackData.category || 'general',
+      feedbackData.subject || 'Feedback', // Default subject if not provided
+      feedbackData.comment, // Map frontend 'comment' to backend 'message'
+      feedbackData.rating, // Required field
       feedbackData.priority || 'medium',
-      feedbackData.attachments ? JSON.stringify(feedbackData.attachments) : null
+      feedbackData.attachments ? JSON.stringify(feedbackData.attachments) : null,
+      feedbackData.meta ? JSON.stringify(feedbackData.meta) : null
     ];
 
     const result = await database.query(query, values);
-    return result.rows[0];
+    
+    // Transform the result to match frontend expectations
+    const feedback = result.rows[0];
+    return {
+      ...feedback,
+      comment: feedback.message, // Map 'message' back to 'comment' for frontend
+      meta: feedback.meta ? (typeof feedback.meta === 'string' ? JSON.parse(feedback.meta) : feedback.meta) : undefined
+    };
   }
 
   /**
