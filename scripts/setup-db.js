@@ -39,6 +39,9 @@ async function setupDatabase() {
       port: process.env.DB_PORT || 5432,
     });
 
+    // Enable UUID extension
+    await appPool.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";');
+    
     // Create tables
     await createTables(appPool);
     await appPool.end();
@@ -121,6 +124,29 @@ async function createTables(pool) {
         status VARCHAR(20) DEFAULT 'active',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create carts table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS carts (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id INTEGER NOT NULL,
+        status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'completed', 'abandoned')),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create cart items table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS cart_items (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        cart_id UUID REFERENCES carts(id) ON DELETE CASCADE,
+        product_id INTEGER REFERENCES products(id),
+        qty INTEGER NOT NULL DEFAULT 1,
+        added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(cart_id, product_id)
       )
     `);
 

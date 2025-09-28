@@ -11,7 +11,10 @@ export class CartModel {
   static async ensureActiveCart(userId: number): Promise<Cart> {
     try {
       const { rows } = await database.query(
-        `SELECT * FROM carts WHERE user_id = $1 AND status = 'active' LIMIT 1`,
+        `SELECT id::text, user_id, status 
+         FROM carts 
+         WHERE user_id = $1 AND status = 'active' 
+         LIMIT 1`,
         [userId]
       );
       
@@ -21,7 +24,7 @@ export class CartModel {
 
       // Create new cart if none exists
       const inserted = await database.query(
-        `INSERT INTO carts (user_id) VALUES ($1) RETURNING *`,
+        `INSERT INTO carts (user_id) VALUES ($1) RETURNING id::text, user_id, status`,
         [userId]
       );
       return inserted.rows[0] as Cart;
@@ -39,7 +42,7 @@ export class CartModel {
       const cart = await this.ensureActiveCart(userId);
       
       const items = await database.query(
-        `SELECT ci.id, ci.qty, p.id AS product_id, p.product_name as name, p.final_price as price
+        `SELECT ci.id::text, ci.cart_id::text, ci.qty, p.id AS product_id, p.product_name as name, p.final_price as price
          FROM cart_items ci 
          JOIN products p ON p.id = ci.product_id
          WHERE ci.cart_id = $1 
@@ -72,19 +75,36 @@ export class CartModel {
   static async addItem(userId: number, productId: number, qty: number = 1): Promise<CartWithItems> {
     try {
       const cart = await this.ensureActiveCart(userId);
-      
+
+      // Check product existence, status, and stock
+      const productRes = await database.query(
+        `SELECT id, status, current_stock, product_name FROM products WHERE id = $1`,
+        [productId]
+      );
+      if (!productRes.rows[0]) {
+        throw new Error('Product not found');
+      }
+      const product = productRes.rows[0];
+      if (product.status !== 'active') {
+        throw new Error('Product is not available for sale');
+      }
+      if (Number(product.current_stock) < qty) {
+        throw new Error(`Not enough stock for product: ${product.product_name}`);
+      }
+
+      // Insert or update cart item, set added_at
       await database.query(
-        `INSERT INTO cart_items (cart_id, product_id, qty)
-         VALUES ($1, $2, $3)
+        `INSERT INTO cart_items (cart_id, product_id, qty, added_at)
+         VALUES ($1::uuid, $2, $3, CURRENT_TIMESTAMP)
          ON CONFLICT (cart_id, product_id) 
-         DO UPDATE SET qty = cart_items.qty + EXCLUDED.qty`,
+         DO UPDATE SET qty = cart_items.qty + EXCLUDED.qty, added_at = CURRENT_TIMESTAMP`,
         [cart.id, productId, qty]
       );
 
       return this.getCartWithItems(userId);
     } catch (error) {
       console.error('Error in CartModel.addItem:', error);
-      throw new Error('Failed to add item to cart');
+      throw new Error(error instanceof Error ? error.message : 'Failed to add item to cart');
     }
   }
 
@@ -97,12 +117,12 @@ export class CartModel {
       
       if (qty <= 0) {
         await database.query(
-          `DELETE FROM cart_items WHERE id = $1 AND cart_id = $2`,
+          `DELETE FROM cart_items WHERE id::text = $1 AND cart_id = $2`,
           [itemId, cart.id]
         );
       } else {
         await database.query(
-          `UPDATE cart_items SET qty = $1 WHERE id = $2 AND cart_id = $3`,
+          `UPDATE cart_items SET qty = $1 WHERE id::text = $2 AND cart_id = $3`,
           [qty, itemId, cart.id]
         );
       }
@@ -122,7 +142,7 @@ export class CartModel {
       const cart = await this.ensureActiveCart(userId);
       
       await database.query(
-        `DELETE FROM cart_items WHERE id = $1 AND cart_id = $2`,
+        `DELETE FROM cart_items WHERE id::text = $1 AND cart_id = $2`,
         [itemId, cart.id]
       );
 

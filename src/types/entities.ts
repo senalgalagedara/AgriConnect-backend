@@ -197,23 +197,20 @@ export interface FeedbackFilter {
 
 // Cart related interfaces
 export interface Cart {
-  id: number;
+  id: string;  // UUID
   user_id: number;
   status: 'active' | 'completed' | 'abandoned';
-  created_at: Date;
-  updated_at: Date;
 }
 
 export interface CartItem {
-  id: number;
-  cart_id: number;
+  id: string;  // UUID
+  cart_id: string;  // UUID
   product_id: number;
   qty: number;
   product_name?: string;
   name?: string; // For backward compatibility
   price?: number;
-  created_at?: Date;
-  updated_at?: Date;
+  added_at?: Date;
 }
 
 export interface CartTotals {

@@ -1,11 +1,36 @@
+import { CartItem } from '../../../types/entities';
+
+export const getCartItems = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = parseInt(req.params.userId);
+    if (!userId || userId <= 0) {
+      res.status(400).json({
+        success: false,
+        message: 'Valid user ID is required'
+      } as ApiResponse);
+      return;
+    }
+    const cartData = await CartService.getCart(userId);
+    res.status(200).json({
+      success: true,
+      message: 'Cart items retrieved successfully',
+      data: cartData.items
+    } as ApiResponse<CartItem[]>);
+  } catch (error) {
+    console.error('Error in CartController.getCartItems:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve cart items',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    } as ApiResponse);
+  }
+};
 import { Request, Response } from 'express';
 import { CartService } from '../services/CartService';
 import { AddToCartRequest, UpdateCartItemRequest, CartWithItems } from '../../../types/entities';
 import { ApiResponse } from '../../../types/database';
 
-/**
- * Get user's cart
- */
+
 export const getCart = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = parseInt(req.params.userId);
