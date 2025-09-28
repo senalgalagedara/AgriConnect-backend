@@ -2,14 +2,15 @@
 CREATE TABLE IF NOT EXISTS feedback (
     id SERIAL PRIMARY KEY,
     user_id INTEGER,
-    user_type VARCHAR(20) NOT NULL CHECK (user_type IN ('farmer', 'supplier', 'driver', 'admin', 'anonymous')),
-    category VARCHAR(20) NOT NULL CHECK (category IN ('general', 'technical', 'service', 'suggestion', 'complaint')),
-    subject VARCHAR(255) NOT NULL,
-    message TEXT NOT NULL,
-    rating INTEGER CHECK (rating >= 1 AND rating <= 5),
+    user_type VARCHAR(20) DEFAULT 'anonymous' CHECK (user_type IN ('farmer', 'supplier', 'driver', 'admin', 'anonymous')),
+    category VARCHAR(20) DEFAULT 'general' CHECK (category IN ('general', 'technical', 'service', 'suggestion', 'complaint')),
+    subject VARCHAR(255) DEFAULT 'Feedback',
+    message TEXT NOT NULL, -- This stores the 'comment' from frontend
+    rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5), -- Made required for frontend
     status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'resolved', 'closed')),
     priority VARCHAR(10) DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
     attachments JSONB,
+    meta JSONB, -- New field for frontend meta data (orderId, userId, etc.)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     resolved_at TIMESTAMP,
