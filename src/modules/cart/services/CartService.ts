@@ -47,13 +47,13 @@ export class CartService {
   /**
    * Update item quantity in cart
    */
-  static async updateItemQuantity(userId: number, itemId: number, qty: number): Promise<CartWithItems> {
+  static async updateItemQuantity(userId: number, itemId: string, qty: number): Promise<CartWithItems> {
     try {
       if (!userId || userId <= 0) {
         throw new Error('Valid user ID is required');
       }
 
-      if (!itemId || itemId <= 0) {
+      if (!itemId || typeof itemId !== 'string') {
         throw new Error('Valid item ID is required');
       }
 
@@ -75,13 +75,13 @@ export class CartService {
   /**
    * Remove item from cart
    */
-  static async removeItem(userId: number, itemId: number): Promise<CartWithItems> {
+  static async removeItem(userId: number, itemId: string): Promise<CartWithItems> {
     try {
       if (!userId || userId <= 0) {
         throw new Error('Valid user ID is required');
       }
 
-      if (!itemId || itemId <= 0) {
+      if (!itemId || typeof itemId !== 'string') {
         throw new Error('Valid item ID is required');
       }
 

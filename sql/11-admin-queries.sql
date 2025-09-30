@@ -1,11 +1,4 @@
--- Admin Module SQL Queries
--- All database operations for the Admin module and administrative functions
 
--- ===========================
--- ADMIN ACTION LOGGING
--- ===========================
-
--- Log admin action
 INSERT INTO admin_actions (
   admin_id, action_type, entity_type, entity_id, 
   old_values, new_values, notes, ip_address, user_agent

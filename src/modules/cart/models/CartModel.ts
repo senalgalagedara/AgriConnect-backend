@@ -11,7 +11,7 @@ export class CartModel {
   static async ensureActiveCart(userId: number): Promise<Cart> {
     try {
       const { rows } = await database.query(
-        `SELECT id::text, user_id, status 
+        `SELECT id, user_id, status 
          FROM carts 
          WHERE user_id = $1 AND status = 'active' 
          LIMIT 1`,
@@ -24,7 +24,7 @@ export class CartModel {
 
       // Create new cart if none exists
       const inserted = await database.query(
-        `INSERT INTO carts (user_id) VALUES ($1) RETURNING id::text, user_id, status`,
+        `INSERT INTO carts (user_id) VALUES ($1) RETURNING id, user_id, status`,
         [userId]
       );
       return inserted.rows[0] as Cart;
@@ -42,7 +42,7 @@ export class CartModel {
       const cart = await this.ensureActiveCart(userId);
       
       const items = await database.query(
-        `SELECT ci.id::text, ci.cart_id::text, ci.qty, p.id AS product_id, p.product_name as name, p.final_price as price
+        `SELECT ci.id, ci.cart_id, ci.qty, p.id AS product_id, p.product_name as name, p.final_price as price
          FROM cart_items ci 
          JOIN products p ON p.id = ci.product_id
          WHERE ci.cart_id = $1 
@@ -111,7 +111,7 @@ export class CartModel {
   /**
    * Update item quantity
    */
-  static async updateQty(userId: number, itemId: number, qty: number): Promise<CartWithItems> {
+  static async updateQty(userId: number, itemId: string, qty: number): Promise<CartWithItems> {
     try {
       const cart = await this.ensureActiveCart(userId);
       
@@ -137,7 +137,7 @@ export class CartModel {
   /**
    * Remove item from cart
    */
-  static async removeItem(userId: number, itemId: number): Promise<CartWithItems> {
+  static async removeItem(userId: number, itemId: string): Promise<CartWithItems> {
     try {
       const cart = await this.ensureActiveCart(userId);
       

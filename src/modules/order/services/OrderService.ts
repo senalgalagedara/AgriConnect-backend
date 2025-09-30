@@ -155,6 +155,21 @@ export class OrderService {
   }
 
   /**
+   * Cancel order (soft delete or status change)
+   */
+  static async cancelOrder(orderId: number): Promise<Order | null> {
+    try {
+      if (!orderId || orderId <= 0) {
+        throw new Error('Valid order ID is required');
+      }
+      return await OrderModel.updateStatus(orderId, 'cancelled' as Order['status']);
+    } catch (error) {
+      console.error('Error in OrderService.cancelOrder:', error);
+      throw error instanceof Error ? error : new Error('Failed to cancel order');
+    }
+  }
+
+  /**
    * Validate email format
    */
   private static isValidEmail(email: string): boolean {

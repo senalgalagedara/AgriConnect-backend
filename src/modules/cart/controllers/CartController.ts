@@ -45,11 +45,7 @@ export const getCart = async (req: Request, res: Response): Promise<void> => {
 
     const cartData = await CartService.getCart(userId);
 
-    res.status(200).json({
-      success: true,
-      message: 'Cart retrieved successfully',
-      data: cartData
-    } as ApiResponse<CartWithItems>);
+    res.status(200).json(cartData);
   } catch (error) {
     console.error('Error in CartController.getCart:', error);
     res.status(500).json({
@@ -107,7 +103,7 @@ export const addItem = async (req: Request, res: Response): Promise<void> => {
 export const updateQty = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = parseInt(req.params.userId);
-    const itemId = parseInt(req.params.itemId);
+    const itemId = req.params.itemId;
     const { qty }: UpdateCartItemRequest = req.body;
 
     if (!userId || userId <= 0) {
@@ -118,7 +114,7 @@ export const updateQty = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    if (!itemId || itemId <= 0) {
+    if (!itemId) {
       res.status(400).json({
         success: false,
         message: 'Valid item ID is required'
@@ -136,11 +132,7 @@ export const updateQty = async (req: Request, res: Response): Promise<void> => {
 
     const cartData = await CartService.updateItemQuantity(userId, itemId, qty);
 
-    res.status(200).json({
-      success: true,
-      message: 'Item quantity updated successfully',
-      data: cartData
-    } as ApiResponse<CartWithItems>);
+    res.status(200).json(cartData);
   } catch (error) {
     console.error('Error in CartController.updateQty:', error);
     res.status(500).json({
@@ -157,7 +149,7 @@ export const updateQty = async (req: Request, res: Response): Promise<void> => {
 export const removeItem = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = parseInt(req.params.userId);
-    const itemId = parseInt(req.params.itemId);
+    const itemId = req.params.itemId;
 
     if (!userId || userId <= 0) {
       res.status(400).json({
@@ -167,7 +159,7 @@ export const removeItem = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    if (!itemId || itemId <= 0) {
+    if (!itemId) {
       res.status(400).json({
         success: false,
         message: 'Valid item ID is required'
@@ -177,11 +169,7 @@ export const removeItem = async (req: Request, res: Response): Promise<void> => 
 
     const cartData = await CartService.removeItem(userId, itemId);
 
-    res.status(200).json({
-      success: true,
-      message: 'Item removed from cart successfully',
-      data: cartData
-    } as ApiResponse<CartWithItems>);
+    res.status(200).json(cartData);
   } catch (error) {
     console.error('Error in CartController.removeItem:', error);
     res.status(500).json({

@@ -8,7 +8,7 @@ import { ApiResponse } from '../../../types/database';
  */
 export const checkout = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { userId, contact, shipping }: CheckoutRequest = req.body;
+    const { userId, contact, shipping }: CheckoutRequest & { shipping: any } = req.body;
 
     if (!userId || !contact || !shipping) {
       res.status(400).json({
@@ -18,7 +18,16 @@ export const checkout = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const orderWithItems = await OrderService.checkout({ userId, contact, shipping });
+    // Normalize postalCode -> zipCode for internal types
+    const normalizedShipping = {
+      address: shipping.address,
+      city: shipping.city,
+      state: shipping.state,
+      zipCode: shipping.zipCode ?? shipping.postalCode,
+      country: shipping.country
+    } as any;
+
+    const orderWithItems = await OrderService.checkout({ userId, contact, shipping: normalizedShipping });
 
     res.status(201).json({
       success: true,
@@ -207,5 +216,29 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
       message: 'Failed to update order status',
       error: error instanceof Error ? error.message : 'Unknown error'
     } as ApiResponse);
+  }
+};
+
+/**
+ * Cancel (delete) order
+ */
+export const cancelOrder = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const orderId = parseInt(req.params.orderId);
+    if (!orderId || orderId <= 0) {
+      res.status(400).json({ success: false, message: 'Valid order ID is required' } as ApiResponse);
+      return;
+    }
+
+    const cancelled = await OrderService.cancelOrder(orderId);
+    if (!cancelled) {
+      res.status(404).json({ success: false, message: 'Order not found' } as ApiResponse);
+      return;
+    }
+
+    res.status(200).json({ success: true, message: 'Order cancelled successfully', data: cancelled } as ApiResponse);
+  } catch (error) {
+    console.error('Error in OrderController.cancelOrder:', error);
+    res.status(500).json({ success: false, message: 'Failed to cancel order', error: error instanceof Error ? error.message : 'Unknown error' } as ApiResponse);
   }
 };

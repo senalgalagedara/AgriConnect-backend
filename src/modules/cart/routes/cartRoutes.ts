@@ -12,8 +12,9 @@ const validateUserId = [
 
 const validateItemId = [
   param('itemId')
-    .isInt({ min: 1 })
-    .withMessage('Item ID must be a positive integer')
+    .isString()
+    .notEmpty()
+    .withMessage('Item ID is required')
 ];
 
 const validateAddItem = [
@@ -32,12 +33,14 @@ const validateUpdateQty = [
     .withMessage('Quantity must be between 0 and 100')
 ];
 
+// Static routes first to avoid being captured by :userId
+router.get('/config/constants', CartController.getCartConfig);
+// Param routes
 router.get('/:userId', validateUserId, CartController.getCart);
 router.get('/:userId/items', validateUserId, CartController.getCartItems);
 router.post('/:userId/items', validateUserId, validateAddItem, CartController.addItem);
 router.patch('/:userId/items/:itemId', validateUserId, validateItemId, validateUpdateQty, CartController.updateQty);
 router.delete('/:userId/items/:itemId', validateUserId, validateItemId, CartController.removeItem);
 router.delete('/:userId/clear', validateUserId, CartController.clearCart);
-router.get('/config/constants', CartController.getCartConfig);
 
 export default router;

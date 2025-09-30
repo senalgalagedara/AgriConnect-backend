@@ -43,10 +43,15 @@ const validateCheckout = [
     .trim()
     .notEmpty()
     .withMessage('State is required'),
-  body('shipping.zipCode')
-    .trim()
-    .notEmpty()
-    .withMessage('ZIP code is required')
+  body()
+    .custom((value) => {
+      const postal = value?.shipping?.postalCode;
+      const zip = value?.shipping?.zipCode;
+      if (!postal && !zip) {
+        throw new Error('Postal or ZIP code is required');
+      }
+      return true;
+    })
 ];
 
 // Validation middleware for marking as paid
@@ -105,5 +110,6 @@ router.get('/paid', validatePaidOrdersQuery, OrderController.getPaidOrders);
 router.get('/:orderId', validateOrderId, OrderController.getOrder);
 router.patch('/:orderId/paid', validateOrderId, validateMarkPaid, OrderController.markPaid);
 router.patch('/:orderId/status', validateOrderId, validateStatusUpdate, OrderController.updateOrderStatus);
+router.delete('/:orderId', validateOrderId, OrderController.cancelOrder);
 
 export default router;
