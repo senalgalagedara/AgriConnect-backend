@@ -44,7 +44,6 @@ export interface Product {
   status: 'active' | 'inactive' | 'discontinued';
   created_at: Date;
   updated_at: Date;
-  // Virtual fields from joins
   category_name?: string;
   province_name?: string;
 }
@@ -197,14 +196,14 @@ export interface FeedbackFilter {
 
 // Cart related interfaces
 export interface Cart {
-  id: string;  // UUID
+  id: number;
   user_id: number;
   status: 'active' | 'completed' | 'abandoned';
 }
 
 export interface CartItem {
-  id: string;  // UUID
-  cart_id: string;  // UUID
+  id: number;
+  cart_id: number;
   product_id: number;
   qty: number;
   product_name?: string;

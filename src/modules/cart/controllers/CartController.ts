@@ -100,10 +100,13 @@ export const addItem = async (req: Request, res: Response): Promise<void> => {
 /**
  * Update item quantity in cart
  */
+/**
+ * Update item quantity in cart
+ */
 export const updateQty = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = parseInt(req.params.userId);
-    const itemId = req.params.itemId;
+    const userId = parseInt(req.params.userId, 10);
+    const itemId = parseInt(req.params.itemId, 10);  // FIXED: parse to number
     const { qty }: UpdateCartItemRequest = req.body;
 
     if (!userId || userId <= 0) {
@@ -114,7 +117,7 @@ export const updateQty = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    if (!itemId) {
+    if (!itemId || itemId <= 0) {
       res.status(400).json({
         success: false,
         message: 'Valid item ID is required'
@@ -148,8 +151,8 @@ export const updateQty = async (req: Request, res: Response): Promise<void> => {
  */
 export const removeItem = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = parseInt(req.params.userId);
-    const itemId = req.params.itemId;
+    const userId = parseInt(req.params.userId, 10);
+    const itemId = parseInt(req.params.itemId, 10); // FIXED: parse to number
 
     if (!userId || userId <= 0) {
       res.status(400).json({
@@ -159,7 +162,7 @@ export const removeItem = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    if (!itemId) {
+    if (!itemId || itemId <= 0) {
       res.status(400).json({
         success: false,
         message: 'Valid item ID is required'

@@ -95,7 +95,7 @@ export class CartModel {
       // Insert or update cart item, set added_at
       await database.query(
         `INSERT INTO cart_items (cart_id, product_id, qty, added_at)
-         VALUES ($1::uuid, $2, $3, CURRENT_TIMESTAMP)
+         VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
          ON CONFLICT (cart_id, product_id) 
          DO UPDATE SET qty = cart_items.qty + EXCLUDED.qty, added_at = CURRENT_TIMESTAMP`,
         [cart.id, productId, qty]
@@ -111,18 +111,18 @@ export class CartModel {
   /**
    * Update item quantity
    */
-  static async updateQty(userId: number, itemId: string, qty: number): Promise<CartWithItems> {
+  static async updateQty(userId: number, itemId: number, qty: number): Promise<CartWithItems> {
     try {
       const cart = await this.ensureActiveCart(userId);
       
       if (qty <= 0) {
         await database.query(
-          `DELETE FROM cart_items WHERE id::text = $1 AND cart_id = $2`,
+          `DELETE FROM cart_items WHERE id = $1 AND cart_id = $2`,
           [itemId, cart.id]
         );
       } else {
         await database.query(
-          `UPDATE cart_items SET qty = $1 WHERE id::text = $2 AND cart_id = $3`,
+          `UPDATE cart_items SET qty = $1 WHERE id = $2 AND cart_id = $3`,
           [qty, itemId, cart.id]
         );
       }
@@ -137,12 +137,12 @@ export class CartModel {
   /**
    * Remove item from cart
    */
-  static async removeItem(userId: number, itemId: string): Promise<CartWithItems> {
+  static async removeItem(userId: number, itemId: number): Promise<CartWithItems> {
     try {
       const cart = await this.ensureActiveCart(userId);
       
       await database.query(
-        `DELETE FROM cart_items WHERE id::text = $1 AND cart_id = $2`,
+        `DELETE FROM cart_items WHERE id = $1 AND cart_id = $2`,
         [itemId, cart.id]
       );
 
