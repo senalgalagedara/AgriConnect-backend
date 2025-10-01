@@ -19,16 +19,17 @@ export class PaymentService {
       // Validate card number for CARD payments
       let cardLast4: string | undefined;
       if (request.method === 'CARD') {
-        if (!request.cardNumber || request.cardNumber.length < 4) {
+        const cleanedCard = (request.cardNumber ?? '').replace(/[\s-]/g, '');
+        if (!cleanedCard || cleanedCard.length < 13 || cleanedCard.length > 19) {
           throw new Error('Valid card number is required for card payments');
         }
-        
-        // Simple validation - in real app you'd use proper card validation
-        if (!/^\d+$/.test(request.cardNumber)) {
+        if (!/^\d+$/.test(cleanedCard)) {
           throw new Error('Card number must contain only digits');
         }
-        
-        cardLast4 = request.cardNumber.slice(-4);
+        if (!this.isValidCardNumber(cleanedCard)) {
+          throw new Error('Invalid card number');
+        }
+        cardLast4 = cleanedCard.slice(-4);
       }
 
       // Mark order as paid
@@ -36,7 +37,7 @@ export class PaymentService {
 
       // Get the full order details
       const orderWithItems = await OrderModel.getOrderWithItems(request.orderId);
-      
+
       if (!orderWithItems) {
         throw new Error('Order not found after payment processing');
       }
@@ -50,14 +51,14 @@ export class PaymentService {
         customerName: `${order.contact.firstName || ''} ${order.contact.lastName || ''}`.trim(),
         email: order.contact.email,
         createdAt: order.created_at,
-        method: request.method === 'CARD' ? 'Credit Card' : 'Cash on Delivery'
+        method: request.method === 'CARD' ? 'Credit Card' : 'Cash on Delivery',
       };
 
       return {
         order,
         items,
         payment,
-        invoice
+        invoice,
       };
     } catch (error) {
       console.error('Error in PaymentService.processPayment:', error);
@@ -73,14 +74,28 @@ export class PaymentService {
   }
 
   /**
-   * Validate card number format (basic validation)
+   * Validate card number format with Luhn check
+   * - strips spaces/dashes
+   * - ensures 13–19 digits
+   * - runs Luhn algorithm
    */
   static isValidCardNumber(cardNumber: string): boolean {
-    // Remove spaces and dashes
-    const cleanedNumber = cardNumber.replace(/[\s-]/g, '');
-    
-    // Check if it's all digits and has reasonable length
-    return /^\d{13,19}$/.test(cleanedNumber);
+    const cleaned = cardNumber.replace(/[\s-]/g, '');
+    if (!/^\d{13,19}$/.test(cleaned)) return false;
+
+    // Luhn algorithm
+    let sum = 0;
+    let shouldDouble = false;
+    for (let i = cleaned.length - 1; i >= 0; i--) {
+      let digit = Number(cleaned[i]);
+      if (shouldDouble) {
+        digit *= 2;
+        if (digit > 9) digit -= 9;
+      }
+      sum += digit;
+      shouldDouble = !shouldDouble;
+    }
+    return sum % 10 === 0;
   }
 
   /**
@@ -89,10 +104,10 @@ export class PaymentService {
   static getMaskedCardNumber(cardNumber: string): string {
     const cleaned = cardNumber.replace(/[\s-]/g, '');
     if (cleaned.length < 4) return '****';
-    
+
     const last4 = cleaned.slice(-4);
-    const masked = '*'.repeat(cleaned.length - 4);
-    
+    const masked = '*'.repeat(Math.max(0, cleaned.length - 4));
+
     return masked + last4;
   }
 }

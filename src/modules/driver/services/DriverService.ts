@@ -10,7 +10,7 @@ export class DriverService {
       return await DriverModel.findAll();
     } catch (error) {
       console.error('Error in DriverService.getAllDrivers:', error);
-      throw error instanceof Error ? error : new Error('Failed to retrieve drivers');
+      throw error instanceof Error ? error : new Error('Failed to retrieve drivers in service');
     }
   }
 

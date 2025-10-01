@@ -7,14 +7,14 @@ const router = Router();
 // Validation middleware for order ID parameter
 const validateOrderId = [
   param('orderId')
-    .isInt({ min: 1 })
+    .isInt({ min: 0 })
     .withMessage('Order ID must be a positive integer')
 ];
 
 // Validation middleware for checkout
 const validateCheckout = [
   body('userId')
-    .isInt({ min: 1 })
+    .isInt({ min: 0 })
     .withMessage('User ID must be a positive integer'),
   body('contact.firstName')
     .trim()

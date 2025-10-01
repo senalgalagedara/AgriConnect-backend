@@ -237,7 +237,7 @@ export interface UpdateCartItemRequest {
 // Order related interfaces
 export interface Order {
   id: number;
-  order_no?: string | number;
+  order_no?: number;
   user_id: number;
   subtotal: number;
   tax: number;
@@ -344,7 +344,7 @@ export interface PaymentResponse {
 }
 
 export interface InvoiceInfo {
-  orderId: string | number;
+  orderId:number;
   total: number;
   customerName: string;
   email: string;
