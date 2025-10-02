@@ -1,57 +1,91 @@
 import { OrderModel } from '../models/OrderModel';
-import { Order, OrderWithItems, CheckoutRequest, OrderFilter } from '../../../types/entities';
-import { PaginationOptions } from '../../../types/database';
+import { CartModel } from '../../cart/models/CartModel';
+import { Order } from '../../../types/entities';
 
 export class OrderService {
   /**
-   * Create order from cart (checkout process)
+   * Create order from cart
    */
-  static async checkout(request: CheckoutRequest): Promise<OrderWithItems> {
+  static async createOrder(
+    userId: number,
+    contact: any,
+    shipping: any,
+    paymentMethod: 'COD' | 'CARD'
+  ): Promise<Order> {
     try {
-      // Validate request
-      if (!request.userId || request.userId <= 0) {
+      // Validate inputs
+      if (!userId || userId <= 0) {
         throw new Error('Valid user ID is required');
       }
 
-      if (!request.contact?.firstName || !request.contact?.lastName) {
+      if (!contact || !contact.firstName || !contact.lastName) {
         throw new Error('Contact first name and last name are required');
       }
 
-      if (!request.contact?.email || !this.isValidEmail(request.contact.email)) {
+      if (!contact.email || !this.isValidEmail(contact.email)) {
         throw new Error('Valid email address is required');
       }
 
-      if (!request.shipping?.address || !request.shipping?.city) {
+      if (!contact.phone) {
+        throw new Error('Phone number is required');
+      }
+
+      if (!shipping || !shipping.address || !shipping.city) {
         throw new Error('Shipping address and city are required');
       }
 
-      // Create order from cart
-      const order = await OrderModel.createFromCart(request.userId, request.contact, request.shipping);
-      
-      // Get the full order with items
-      const orderWithItems = await OrderModel.getOrderWithItems(order.id);
-      
-      if (!orderWithItems) {
-        throw new Error('Failed to retrieve created order');
+      if (!shipping.state) {
+        throw new Error('Shipping state is required');
       }
 
-      return orderWithItems;
+      if (!shipping.postalCode) {
+        throw new Error('Postal code is required');
+      }
+
+      if (!paymentMethod || !['COD', 'CARD'].includes(paymentMethod)) {
+        throw new Error('Valid payment method is required (COD or CARD)');
+      }
+
+      // Get user's cart
+      const cartData = await CartModel.getCartWithItems(userId);
+
+      if (!cartData.items || cartData.items.length === 0) {
+        throw new Error('Cart is empty. Please add items to your cart before checkout.');
+      }
+
+      // Create order
+      const order = await OrderModel.createOrder(
+        userId,
+        cartData.cart.id,
+        contact,
+        shipping,
+        cartData.totals,
+        paymentMethod
+      );
+
+      return order;
     } catch (error) {
-      console.error('Error in OrderService.checkout:', error);
-      throw error instanceof Error ? error : new Error('Failed to process checkout');
+      console.error('Error in OrderService.createOrder:', error);
+      throw error instanceof Error ? error : new Error('Failed to create order');
     }
   }
 
   /**
    * Get order by ID with items
    */
-  static async getOrderById(orderId: number): Promise<OrderWithItems | null> {
+  static async getOrderById(orderId: number, userId?: number): Promise<any> {
     try {
       if (!orderId || orderId <= 0) {
         throw new Error('Valid order ID is required');
       }
 
-      return await OrderModel.getOrderWithItems(orderId);
+      const order = await OrderModel.getOrderById(orderId, userId);
+      
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      return order;
     } catch (error) {
       console.error('Error in OrderService.getOrderById:', error);
       throw error instanceof Error ? error : new Error('Failed to retrieve order');
@@ -59,79 +93,25 @@ export class OrderService {
   }
 
   /**
-   * Get order (simple) by ID
+   * Get all orders for a user
    */
-  static async getOrder(orderId: number): Promise<Order | null> {
+  static async getUserOrders(userId: number): Promise<Order[]> {
     try {
-      if (!orderId || orderId <= 0) {
-        throw new Error('Valid order ID is required');
+      if (!userId || userId <= 0) {
+        throw new Error('Valid user ID is required');
       }
 
-      return await OrderModel.findById(orderId);
+      return await OrderModel.getUserOrders(userId);
     } catch (error) {
-      console.error('Error in OrderService.getOrder:', error);
-      throw error instanceof Error ? error : new Error('Failed to retrieve order');
-    }
-  }
-
-  /**
-   * Mark order as paid
-   */
-  static async markOrderPaid(orderId: number, method: string, cardLast4?: string): Promise<any> {
-    try {
-      if (!orderId || orderId <= 0) {
-        throw new Error('Valid order ID is required');
-      }
-
-      if (!method || method.trim().length === 0) {
-        throw new Error('Payment method is required');
-      }
-
-      // Validate payment method
-      const validMethods = ['credit_card', 'debit_card', 'paypal', 'bank_transfer', 'cash'];
-      if (!validMethods.includes(method.toLowerCase())) {
-        throw new Error('Invalid payment method');
-      }
-
-      // Validate card last 4 digits if provided
-      if (cardLast4 && (cardLast4.length !== 4 || !/^\d{4}$/.test(cardLast4))) {
-        throw new Error('Card last 4 digits must be exactly 4 numeric characters');
-      }
-
-      return await OrderModel.markPaid(orderId, method, cardLast4);
-    } catch (error) {
-      console.error('Error in OrderService.markOrderPaid:', error);
-      throw error instanceof Error ? error : new Error('Failed to mark order as paid');
-    }
-  }
-
-  /**
-   * Get paid orders with filtering and pagination
-   */
-  static async getPaidOrders(
-    filters?: OrderFilter,
-    pagination?: PaginationOptions
-  ): Promise<{ orders: Order[], total: number }> {
-    try {
-      // Set default pagination
-      const paginationOptions = {
-        page: pagination?.page || 1,
-        limit: Math.min(pagination?.limit || 50, 100), // Max 100 items per page
-        sortBy: pagination?.sortBy || 'created_at',
-        sortOrder: pagination?.sortOrder || 'DESC'
-      };
-
-      return await OrderModel.findPaidOrders(filters, paginationOptions);
-    } catch (error) {
-      console.error('Error in OrderService.getPaidOrders:', error);
-      throw error instanceof Error ? error : new Error('Failed to retrieve paid orders');
+      console.error('Error in OrderService.getUserOrders:', error);
+      throw error instanceof Error ? error : new Error('Failed to retrieve user orders');
     }
   }
 
   /**
    * Update order status
    */
-  static async updateOrderStatus(orderId: number, status: Order['status']): Promise<Order | null> {
+  static async updateOrderStatus(orderId: number, status: string): Promise<Order> {
     try {
       if (!orderId || orderId <= 0) {
         throw new Error('Valid order ID is required');
@@ -142,12 +122,18 @@ export class OrderService {
       }
 
       // Validate status
-      const validStatuses = ['pending', 'paid', 'processing', 'shipped', 'delivered', 'cancelled'];
+      const validStatuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
       if (!validStatuses.includes(status)) {
-        throw new Error('Invalid order status');
+        throw new Error(`Invalid order status. Must be one of: ${validStatuses.join(', ')}`);
       }
 
-      return await OrderModel.updateStatus(orderId, status);
+      const updatedOrder = await OrderModel.updateOrderStatus(orderId, status);
+      
+      if (!updatedOrder) {
+        throw new Error('Order not found');
+      }
+
+      return updatedOrder;
     } catch (error) {
       console.error('Error in OrderService.updateOrderStatus:', error);
       throw error instanceof Error ? error : new Error('Failed to update order status');
@@ -155,17 +141,64 @@ export class OrderService {
   }
 
   /**
-   * Cancel order (soft delete or status change)
+   * Cancel order
    */
-  static async cancelOrder(orderId: number): Promise<Order | null> {
+  static async cancelOrder(orderId: number): Promise<Order> {
     try {
       if (!orderId || orderId <= 0) {
         throw new Error('Valid order ID is required');
       }
-      return await OrderModel.updateStatus(orderId, 'cancelled' as Order['status']);
+
+      // Check if order exists and can be cancelled
+      const order = await OrderModel.getOrderById(orderId);
+      
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      if (order.status === 'cancelled') {
+        throw new Error('Order is already cancelled');
+      }
+
+      if (order.status === 'delivered') {
+        throw new Error('Cannot cancel a delivered order');
+      }
+
+      return await OrderModel.updateOrderStatus(orderId, 'cancelled');
     } catch (error) {
       console.error('Error in OrderService.cancelOrder:', error);
       throw error instanceof Error ? error : new Error('Failed to cancel order');
+    }
+  }
+
+  /**
+   * Get order statistics for a user
+   */
+  static async getUserOrderStats(userId: number): Promise<any> {
+    try {
+      if (!userId || userId <= 0) {
+        throw new Error('Valid user ID is required');
+      }
+
+      const orders = await OrderModel.getUserOrders(userId);
+
+      const stats = {
+        totalOrders: orders.length,
+        totalSpent: orders.reduce((sum, order) => sum + Number(order.total), 0),
+        ordersByStatus: {
+          pending: orders.filter(o => o.status === 'pending').length,
+          processing: orders.filter(o => o.status === 'processing').length,
+          shipped: orders.filter(o => o.status === 'shipped').length,
+          delivered: orders.filter(o => o.status === 'delivered').length,
+          cancelled: orders.filter(o => o.status === 'cancelled').length,
+        },
+        latestOrder: orders.length > 0 ? orders[0] : null
+      };
+
+      return stats;
+    } catch (error) {
+      console.error('Error in OrderService.getUserOrderStats:', error);
+      throw error instanceof Error ? error : new Error('Failed to retrieve order statistics');
     }
   }
 
