@@ -17,7 +17,17 @@ function credentialsError() { return { error: 'INVALID_CREDENTIALS', message: 'I
 // SIGNUP
 router.post('/signup', async (req, res) => {
   try {
-    const { email, password, firstName, lastName, role, contactNumber, address, status } = req.body || {};
+    const { email, password } = req.body || {};
+    // Normalize text fields defensively
+    const rawFirst = (req.body?.firstName ?? '').toString();
+    const rawLast = (req.body?.lastName ?? '').toString();
+    const rawRole = (req.body?.role ?? '').toString();
+    const contactNumber = req.body?.contactNumber;
+    const address = req.body?.address;
+    const status = req.body?.status;
+    const firstName = rawFirst.trim();
+    const lastName = rawLast.trim();
+    const role = rawRole.trim().toLowerCase();
     const fieldErrors: Record<string,string> = {};
     if (!email || !EMAIL_REGEX.test(email)) fieldErrors.email = 'Invalid email';
     if (!password || !PASSWORD_REGEX.test(password)) fieldErrors.password = 'Password must be >=6 chars incl. upper, lower, digit';
@@ -32,7 +42,12 @@ router.post('/signup', async (req, res) => {
         normalizedStatus = status;
       }
     }
-    if (Object.keys(fieldErrors).length) return res.status(400).json(validationError('Invalid input', fieldErrors));
+    if (Object.keys(fieldErrors).length) {
+      if ((process.env.NODE_ENV || 'development') !== 'production') {
+        console.warn('[auth/signup] validation errors', fieldErrors, 'payloadKeys=', Object.keys(req.body||{}));
+      }
+      return res.status(400).json(validationError('Invalid input', fieldErrors));
+    }
 
     const existing = await database.query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
     if (existing.rows.length) return res.status(400).json(validationError('Email already in use', { email: 'Taken' }));
@@ -42,7 +57,7 @@ router.post('/signup', async (req, res) => {
       `INSERT INTO users (email, password_hash, role, first_name, last_name, contact_number, address, status)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
        RETURNING *`,
-      [email.toLowerCase(), hash, role, firstName, lastName, contactNumber || null, address || null, normalizedStatus]
+      [email.toLowerCase(), hash, role, firstName, lastName, contactNumber ? String(contactNumber).trim() : null, address ? String(address).trim() : null, normalizedStatus]
     );
 
     const user = sanitizeUser(inserted.rows[0]);

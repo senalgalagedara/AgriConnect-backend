@@ -9,10 +9,9 @@
     "watch": "nodemon --exec ts-node src/server.ts",
     "build": "tsc",
     "start:prod": "node dist/server.js",
-    "db:migrate": "ts-node scripts/migrate-database.ts",
-    "db:setup": "node scripts/setup-db.js",
-    "db:feedback": "node scripts/create-feedback-table.js",
-    "db:migrate-feedback": "node scripts/migrate-feedback-table.js",
+  "db:migrate": "ts-node scripts/migrate-database.ts",
+  "db:auth": "node scripts/apply-auth-schema.js",
+  "db:run": "node scripts/run-migration.js",
     "type-check": "tsc --noEmit",
     "clean": "rimraf dist",
     "prebuild": "npm run clean"

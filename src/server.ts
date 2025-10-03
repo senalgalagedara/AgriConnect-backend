@@ -37,6 +37,20 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(sessionMiddleware);
 
+// Development request logger (enabled only in non-production)
+if ((process.env.NODE_ENV || 'development') !== 'production') {
+  app.use((req: Request, res: Response, next) => {
+    const start = Date.now();
+    const { method, originalUrl } = req;
+    const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '') as string;
+    res.on('finish', () => {
+      const ms = Date.now() - start;
+      console.log(`[REQ] ${method} ${originalUrl} ${res.statusCode} ${ms}ms ip=${ip}`);
+    });
+    next();
+  });
+}
+
 // Test database connection
 database.query('SELECT NOW()')
   .then(() => console.log('Database connected successfully'))
