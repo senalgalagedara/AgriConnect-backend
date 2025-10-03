@@ -23,6 +23,7 @@ import driverRoutes from './modules/driver/routes/driverRoutes';
 import assignmentRoutes from './modules/assignment/routes/assignmentRoutes';
 import authRoutes from './modules/auth/routes/authRoutes';
 import { sessionMiddleware } from './modules/auth/middleware/session';
+import dashboardRoutes from './modules/dashboard/routes/dashboardRoutes';
 
 const app: Application = express();
 const PORT = process.env.PORT || 5000;
@@ -71,6 +72,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/drivers', driverRoutes);
 app.use('/api/assignments', assignmentRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Health check route
 app.get('/api/health', async (req: Request, res: Response) => {
