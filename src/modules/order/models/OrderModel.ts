@@ -1,10 +1,8 @@
 import database from '../../../config/database';
-import { Order, OrderItem } from '../../../types/entities';
+import { Order, OrderItem, OrderFilter } from '../../../types/entities';
+import { PaginationOptions } from '../../../types/database';
 
 export class OrderModel {
-  /**
-   * Create a new order with items
-   */
   static async createOrder(
     userId: number,
     cartId: number,
@@ -14,11 +12,10 @@ export class OrderModel {
     paymentMethod: 'COD' | 'CARD'
   ): Promise<Order> {
     const client = await database.getClient();
-    
+
     try {
       await client.query('BEGIN');
 
-      // Insert order (schema uses no order_no column in sql/00-database-schema.sql)
       const orderResult = await client.query(
         `INSERT INTO orders 
          (user_id, subtotal, tax, shipping_fee, total, status, contact, shipping, created_at)
@@ -32,18 +29,17 @@ export class OrderModel {
           totals.total,
           'pending',
           JSON.stringify(contact),
-          JSON.stringify(shipping)
+          JSON.stringify(shipping),
         ]
       );
 
       const order = orderResult.rows[0] as Order;
 
-      // Get cart items
       const cartItemsResult = await client.query(
         `SELECT ci.product_id, ci.qty, p.product_name, p.final_price as price
-         FROM cart_items ci
-         JOIN products p ON p.id = ci.product_id
-         WHERE ci.cart_id = $1`,
+           FROM cart_items ci
+           JOIN products p ON p.id = ci.product_id
+          WHERE ci.cart_id = $1`,
         [cartId]
       );
 
@@ -53,46 +49,44 @@ export class OrderModel {
 
       // Insert order items and update stock
       for (const item of cartItemsResult.rows) {
-        // Check stock before creating order item
+        // Check stock (FOR UPDATE to avoid race conditions on hot SKUs)
         const stockCheck = await client.query(
-          `SELECT current_stock FROM products WHERE id = $1`,
+          `SELECT current_stock FROM products WHERE id = $1 FOR UPDATE`,
           [item.product_id]
         );
 
         if (!stockCheck.rows[0] || Number(stockCheck.rows[0].current_stock) < item.qty) {
-          throw new Error(`Insufficient stock for product: ${item.product_name}`);
+          throw new Error(`Insufficient stock for product: ${item.name}`);
         }
 
-        // Insert order item (schema uses 'name' column to store product name at time of order)
+        // Insert order item
         await client.query(
-          `INSERT INTO order_items 
-           (order_id, product_id, name, price, qty)
+          `INSERT INTO order_items (order_id, product_id, name, price, qty)
            VALUES ($1, $2, $3, $4, $5)`,
-          [order.id, item.product_id, item.product_name || item.name || null, item.price, item.qty]
+          [order.id, item.product_id, item.name, item.price, item.qty]
         );
 
         // Update product stock
         await client.query(
-          `UPDATE products 
-           SET current_stock = current_stock - $1 
-           WHERE id = $2`,
+          `UPDATE products SET current_stock = current_stock - $1 WHERE id = $2`,
           [item.qty, item.product_id]
         );
       }
 
-      // Clear cart items after order creation
-      await client.query(
-        `DELETE FROM cart_items WHERE cart_id = $1`,
-        [cartId]
-      );
-
-      // Mark cart as completed
-      await client.query(
-        `UPDATE carts SET status = 'completed' WHERE id = $1`,
-        [cartId]
-      );
+      // Clear cart items and close cart
+      await client.query(`DELETE FROM cart_items WHERE cart_id = $1`, [cartId]);
+      await client.query(`UPDATE carts SET status = 'completed' WHERE id = $1`, [cartId]);
 
       await client.query('COMMIT');
+
+      // Normalize JSON fields before returning
+      if (typeof (order as any).contact === 'string') {
+        (order as any).contact = JSON.parse((order as any).contact);
+      }
+      if (typeof (order as any).shipping === 'string') {
+        (order as any).shipping = JSON.parse((order as any).shipping);
+      }
+
       return order;
     } catch (error) {
       await client.query('ROLLBACK');
@@ -111,7 +105,7 @@ export class OrderModel {
       const orderQuery = userId
         ? `SELECT * FROM orders WHERE id = $1 AND user_id = $2`
         : `SELECT * FROM orders WHERE id = $1`;
-      
+
       const params = userId ? [orderId, userId] : [orderId];
       const orderResult = await database.query(orderQuery, params);
 
@@ -137,7 +131,7 @@ export class OrderModel {
 
       return {
         ...order,
-        items: itemsResult.rows
+        items: itemsResult.rows,
       };
     } catch (error) {
       console.error('Error in OrderModel.getOrderById:', error);
@@ -152,13 +146,12 @@ export class OrderModel {
     try {
       const result = await database.query(
         `SELECT * FROM orders 
-         WHERE user_id = $1 
-         ORDER BY created_at DESC`,
+          WHERE user_id = $1 
+          ORDER BY created_at DESC`,
         [userId]
       );
 
-      // Parse JSON fields for each order
-      const orders = result.rows.map(order => {
+      const orders = result.rows.map((order) => {
         if (typeof order.contact === 'string') {
           order.contact = JSON.parse(order.contact);
         }
@@ -176,126 +169,15 @@ export class OrderModel {
   }
 
   /**
-   * Mark an order as paid and create a payment record
-   */
-  static async markPaid(orderId: number, method: 'COD' | 'CARD', cardLast4?: string, amount?: number): Promise<any> {
-    const client = await database.getClient();
-    try {
-      await client.query('BEGIN');
-
-      // Update order status to confirmed (or 'paid')
-      const updateRes = await client.query(
-        `UPDATE orders SET status = $1 WHERE id = $2 RETURNING *`,
-        ['confirmed', orderId]
-      );
-
-      if (!updateRes.rows[0]) {
-        throw new Error('Order not found');
-      }
-
-      const order = updateRes.rows[0];
-
-      // Insert payment record. Aligns with sql/00-database-schema.sql payments table
-      const paymentRes = await client.query(
-        `INSERT INTO payments (order_id, amount, payment_method, payment_status, transaction_id, processed_at, created_at)
-         VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING *`,
-        [orderId, amount ?? order.total ?? 0, method === 'CARD' ? 'card' : 'cash', 'completed', cardLast4 ? `CARD-${cardLast4}` : null]
-      );
-
-      await client.query('COMMIT');
-      return paymentRes.rows[0];
-    } catch (error) {
-      await client.query('ROLLBACK');
-      console.error('Error in OrderModel.markPaid:', error);
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
-
-  /**
-   * Get order with its items (wrapper)
-   */
-  static async getOrderWithItems(orderId: number): Promise<{ order: any; items: any[] } | null> {
-    try {
-      const order = await this.getOrderById(orderId);
-      if (!order) return null;
-      return { order, items: order.items || [] };
-    } catch (error) {
-      console.error('Error in OrderModel.getOrderWithItems:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Find paid/confirmed orders with optional filters and pagination
-   */
-  static async findPaidOrders(filters: any = {}, pagination: any = { page: 1, limit: 50, sortBy: 'created_at', sortOrder: 'DESC' }): Promise<{ orders: Order[]; total: number }> {
-    try {
-      const whereClauses: string[] = [`status IN ('confirmed','paid')`];
-      const params: any[] = [];
-      let idx = 1;
-
-      if (filters.order_no) {
-        whereClauses.push(`order_no = $${idx++}`);
-        params.push(filters.order_no);
-      }
-
-      if (filters.customer_email) {
-        whereClauses.push(`(contact->>'email') ILIKE $${idx++}`);
-        params.push(`%${filters.customer_email}%`);
-      }
-
-      if (filters.created_from) {
-        whereClauses.push(`created_at >= $${idx++}`);
-        params.push(filters.created_from);
-      }
-
-      if (filters.created_to) {
-        whereClauses.push(`created_at <= $${idx++}`);
-        params.push(filters.created_to);
-      }
-
-      const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
-
-      const limit = Math.min(pagination.limit || 50, 100);
-      const offset = ((pagination.page || 1) - 1) * limit;
-
-      const orderBy = `${pagination.sortBy || 'created_at'} ${pagination.sortOrder || 'DESC'}`;
-
-      const query = `SELECT * FROM orders ${whereSql} ORDER BY ${orderBy} LIMIT $${idx++} OFFSET $${idx++}`;
-      params.push(limit, offset);
-
-      const result = await database.query(query, params);
-
-      // Count total (use same where clauses)
-      const countParams = params.slice(0, params.length - 2);
-      const countQuery = `SELECT COUNT(*) as total FROM orders ${whereSql}`;
-      const countRes = await database.query(countQuery, countParams);
-
-      const orders = result.rows.map((o: any) => {
-        if (typeof o.contact === 'string') o.contact = JSON.parse(o.contact);
-        if (typeof o.shipping === 'string') o.shipping = JSON.parse(o.shipping);
-        return o as Order;
-      });
-
-      return { orders, total: Number(countRes.rows[0]?.total || orders.length) };
-    } catch (error) {
-      console.error('Error in OrderModel.findPaidOrders:', error);
-      throw error;
-    }
-  }
-
-  /**
    * Update order status
    */
   static async updateOrderStatus(orderId: number, status: string): Promise<Order> {
     try {
       const result = await database.query(
         `UPDATE orders 
-         SET status = $1 
-         WHERE id = $2 
-         RETURNING *`,
+            SET status = $1 
+          WHERE id = $2 
+        RETURNING *`,
         [status, orderId]
       );
 
@@ -305,7 +187,6 @@ export class OrderModel {
 
       const order = result.rows[0];
 
-      // Parse JSON fields
       if (typeof order.contact === 'string') {
         order.contact = JSON.parse(order.contact);
       }
@@ -318,5 +199,185 @@ export class OrderModel {
       console.error('Error in OrderModel.updateOrderStatus:', error);
       throw new Error('Failed to update order status');
     }
+  }
+
+  /**
+   * Mark an order as paid and create a payment record.
+   * - For CARD: payment status = 'succeeded' and order becomes 'paid'
+   * - For COD:  payment status = 'pending' and order remains 'pending' (or your COD status)
+   *
+   * Returns the inserted payment row.
+   */
+  static async markPaid(
+    orderId: number,
+    method: 'COD' | 'CARD',
+    cardLast4?: string
+  ): Promise<{
+    id: number;
+    order_id: number;
+    amount: number;
+    method: 'COD' | 'CARD';
+    card_last4: string | null;
+    status: 'succeeded' | 'pending';
+    created_at: string;
+  }> {
+    const client = await database.getClient();
+    try {
+      await client.query('BEGIN');
+
+      // Lock order to prevent race conditions and read total
+      const ordRes = await client.query(
+        `SELECT id, total, status
+           FROM orders
+          WHERE id = $1
+          FOR UPDATE`,
+        [orderId]
+      );
+
+      if (!ordRes.rows[0]) {
+        throw new Error('Order not found');
+      }
+
+      const amount = Number(ordRes.rows[0].total);
+      const paymentStatus: 'succeeded' | 'pending' = method === 'CARD' ? 'succeeded' : 'pending';
+
+      // Insert payment row
+      const payRes = await client.query(
+        `INSERT INTO payments (order_id, amount, method, card_last4, status, created_at)
+         VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+         RETURNING id, order_id, amount, method, card_last4, status, created_at`,
+        [orderId, amount, method, cardLast4 ?? null, paymentStatus]
+      );
+
+      // Update order status only if CARD charge succeeded
+      if (method === 'CARD') {
+        await client.query(
+          `UPDATE orders
+              SET status = 'paid'
+            WHERE id = $1`,
+          [orderId]
+        );
+      }
+      // For COD you may keep 'pending' or set a custom status like 'cod_pending'
+
+      await client.query('COMMIT');
+      return payRes.rows[0];
+    } catch (err) {
+      await client.query('ROLLBACK');
+      console.error('Error in OrderModel.markPaid:', err);
+      throw err instanceof Error ? err : new Error('Failed to mark order as paid');
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Fetch an order and its items together.
+   * Returns { order, items } or null if not found.
+   */
+  static async getOrderWithItems(
+    orderId: number
+  ): Promise<{ order: Order; items: OrderItem[] } | null> {
+    // Load order
+    const orderRes = await database.query(
+      `SELECT * FROM orders WHERE id = $1`,
+      [orderId]
+    );
+    if (!orderRes.rows[0]) return null;
+
+    const order = orderRes.rows[0] as Order;
+
+    // Normalize JSON fields
+    if (typeof (order as any).contact === 'string') {
+      (order as any).contact = JSON.parse((order as any).contact);
+    }
+    if (typeof (order as any).shipping === 'string') {
+      (order as any).shipping = JSON.parse((order as any).shipping);
+    }
+
+    // Load items
+    const itemsRes = await database.query(
+      `SELECT * FROM order_items WHERE order_id = $1 ORDER BY id ASC`,
+      [orderId]
+    );
+
+    // Map DB rows to your OrderItem type if needed
+    const items = itemsRes.rows as OrderItem[];
+
+    return { order, items };
+  }
+
+  /**
+   * NEW: Find paid orders with filters + pagination for AdminService
+   */
+  static async findPaidOrders(
+    filters: OrderFilter = {},
+    pagination?: PaginationOptions
+  ): Promise<{ orders: Order[]; total: number }> {
+    // Defaults
+    const page = Math.max(1, pagination?.page ?? 1);
+    const limit = Math.min(Math.max(1, pagination?.limit ?? 50), 100);
+    const offset = (page - 1) * limit;
+
+    // Allowlist sort columns to prevent SQL injection
+    const sortable = new Set(['created_at', 'total', 'id', 'user_id']);
+    const sortBy = sortable.has((pagination?.sortBy ?? 'created_at')) ? (pagination?.sortBy ?? 'created_at') : 'created_at';
+    const sortOrder = (pagination?.sortOrder ?? 'DESC').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
+    const where: string[] = [`status = 'paid'`];
+    const params: any[] = [];
+    let i = 1;
+
+    // Order number: if you don't have an order_no column, use id as "order number"
+    if (filters.order_no) {
+      where.push(`id = $${i++}`);
+      params.push(Number(filters.order_no));
+    }
+
+    // Email search: look inside contact JSON (contact->>'email')
+    if (filters.customer_email) {
+      where.push(`(contact->>'email') ILIKE $${i++}`);
+      params.push(`%${filters.customer_email}%`);
+    }
+
+    if (filters.created_from) {
+      where.push(`created_at >= $${i++}`);
+      params.push(filters.created_from);
+    }
+
+    if (filters.created_to) {
+      where.push(`created_at <= $${i++}`);
+      params.push(filters.created_to);
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
+    // Total count
+    const countSql = `SELECT COUNT(*)::int AS count FROM orders ${whereSql}`;
+    const countRes = await database.query(countSql, params);
+    const total: number = countRes.rows[0]?.count ?? 0;
+
+    // Rows
+    const rowsSql = `
+      SELECT *
+        FROM orders
+        ${whereSql}
+    ORDER BY ${sortBy} ${sortOrder}
+       LIMIT $${i++} OFFSET $${i++}
+    `;
+    const rowsRes = await database.query(rowsSql, [...params, limit, offset]);
+
+    // Normalize JSON fields
+    const orders = (rowsRes.rows as Order[]).map((o: any) => {
+      if (typeof o.contact === 'string') {
+        o.contact = JSON.parse(o.contact);
+      }
+      if (typeof o.shipping === 'string') {
+        o.shipping = JSON.parse(o.shipping);
+      }
+      return o as Order;
+    });
+
+    return { orders, total };
   }
 }

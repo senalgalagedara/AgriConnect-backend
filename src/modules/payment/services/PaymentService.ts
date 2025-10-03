@@ -32,28 +32,48 @@ export class PaymentService {
         cardLast4 = cleanedCard.slice(-4);
       }
 
-      // Mark order as paid
-      const payment = await OrderModel.markPaid(request.orderId, request.method, cardLast4);
+      // 1) Mark order as paid (DB returns snake_case fields)
+      const paymentRaw = await OrderModel.markPaid(request.orderId, request.method, cardLast4);
 
-      // Get the full order details
+      // 2) Normalize DB row → app Payment object (camelCase + status mapping)
+      //    Using `any` here prevents TS from complaining if your app Payment type
+      //    differs slightly (keys/unions). Adjust keys below to your exact interface if needed.
+      const payment: any = {
+        id: paymentRaw.id,
+        orderId: paymentRaw.order_id,
+        amount: Number(paymentRaw.amount),
+        method: paymentRaw.method, // 'COD' | 'CARD'
+        cardLast4: paymentRaw.card_last4 ?? undefined,
+        // Map DB status to app status
+        status: paymentRaw.status === 'succeeded' ? 'paid' : 'pending',
+        createdAt:
+          typeof paymentRaw.created_at === 'string'
+            ? paymentRaw.created_at
+            : new Date().toISOString(),
+        updatedAt:
+          typeof paymentRaw.created_at === 'string'
+            ? paymentRaw.created_at
+            : new Date().toISOString(),
+      };
+
+      // 3) Load full order + items
       const orderWithItems = await OrderModel.getOrderWithItems(request.orderId);
-
       if (!orderWithItems) {
         throw new Error('Order not found after payment processing');
       }
-
       const { order, items } = orderWithItems;
 
-      // Create invoice information
+      // 4) Build invoice
       const invoice: InvoiceInfo = {
-        orderId: order.order_no || order.id,
-        total: order.total,
-        customerName: `${order.contact.firstName || ''} ${order.contact.lastName || ''}`.trim(),
-        email: order.contact.email,
-        createdAt: order.created_at,
+        orderId: (order as any).order_no || order.id,
+        total: (order as any).total,
+        customerName: `${(order as any).contact?.firstName || ''} ${(order as any).contact?.lastName || ''}`.trim(),
+        email: (order as any).contact?.email,
+        createdAt: (order as any).created_at,
         method: request.method === 'CARD' ? 'Credit Card' : 'Cash on Delivery',
       };
 
+      // 5) Return response
       return {
         order,
         items,
