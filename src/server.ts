@@ -12,6 +12,7 @@ import provinceRoutes from './modules/province/routes/provinceRoutes';
 import productRoutes from './modules/product/routes/productRoutes';
 import farmerRoutes from './modules/farmer/routes/farmerRoutes';
 import supplierRoutes from './modules/supplier/routes/supplierRoutes';
+import userRoutes from './modules/user/routes/user.routes';
 
 // Import TypeScript routes
 import cartRoutes from './modules/cart/routes/cartRoutes';
@@ -38,6 +39,7 @@ database.query('SELECT NOW()')
   .catch((err: Error) => console.error('Database connection error:', err));
 
 // Routes
+app.use('/api/users', userRoutes);   // ✅ add this line
 app.use('/api/feedback', feedbackRoutes); // New TypeScript feedback routes
 app.use('/api/provinces', provinceRoutes); // New TypeScript province routes
 app.use('/api/products', productRoutes); // New TypeScript product routes

@@ -1,5 +1,5 @@
 import { FarmerModel } from '../models/FarmerModel';
-import { Farmer, CreateFarmerRequest, UpdateFarmerRequest, PaginationOptions } from '../../../types';
+import { Farmer, CreateFarmerRequest, UpdateFarmerRequest, PaginationOptions } from '../../..';
 
 export class FarmerService {
 

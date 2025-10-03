@@ -1,5 +1,5 @@
 import { SupplierModel } from '../models/SupplierModel';
-import { Supplier, CreateSupplierRequest, UpdateSupplierRequest, PaginationOptions } from '../../../types';
+import { Supplier, CreateSupplierRequest, UpdateSupplierRequest, PaginationOptions } from '../../..';
 
 export class SupplierService {
 

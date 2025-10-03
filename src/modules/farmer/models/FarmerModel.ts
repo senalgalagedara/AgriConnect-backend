@@ -1,5 +1,5 @@
 import database from '../../../config/database';
-import { Farmer, CreateFarmerRequest, UpdateFarmerRequest, PaginationOptions } from '../../../types';
+import { Farmer, CreateFarmerRequest, UpdateFarmerRequest, PaginationOptions } from '../../..';
 
 export class FarmerModel {
 

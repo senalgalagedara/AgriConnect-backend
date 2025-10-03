@@ -1,5 +1,5 @@
 import database from '../../../config/database';
-import { Province, CreateProvinceRequest, UpdateProvinceRequest, ProvinceStatistics } from '../../../types';
+import { Province, CreateProvinceRequest, UpdateProvinceRequest, ProvinceStatistics } from '../../..';
 
 export class ProvinceModel {
   

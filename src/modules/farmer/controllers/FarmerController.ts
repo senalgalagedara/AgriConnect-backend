@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
 import { FarmerService } from '../services/FarmerService';
-import { ApiResponse, CreateFarmerRequest, UpdateFarmerRequest, PaginationOptions, PaginatedResponse } from '../../../types';
+import { ApiResponse, CreateFarmerRequest, UpdateFarmerRequest, PaginationOptions, PaginatedResponse } from '../../..';
 
 export class FarmerController {
 

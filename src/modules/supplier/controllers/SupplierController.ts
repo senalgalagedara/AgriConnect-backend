@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
 import { SupplierService } from '../services/SupplierService';
-import { ApiResponse, CreateSupplierRequest, UpdateSupplierRequest, PaginationOptions, PaginatedResponse } from '../../../types';
+import { ApiResponse, CreateSupplierRequest, UpdateSupplierRequest, PaginationOptions, PaginatedResponse } from '../../..';
 
 export class SupplierController {
 

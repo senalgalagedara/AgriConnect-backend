@@ -1,5 +1,5 @@
 import database from '../../../config/database';
-import { Product, CreateProductRequest, UpdateProductRequest, PaginationOptions } from '../../../types';
+import { Product, CreateProductRequest, UpdateProductRequest, PaginationOptions } from '../../..';
 
 export class ProductModel {
 

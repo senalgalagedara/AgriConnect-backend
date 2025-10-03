@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { FeedbackService } from '../services/FeedbackService';
-import { ApiResponse, CreateFeedbackRequest, UpdateFeedbackRequest, FeedbackFilter, PaginationOptions } from '../../../types';
+import { ApiResponse, CreateFeedbackRequest, UpdateFeedbackRequest, FeedbackFilter, PaginationOptions } from '../../..';
 
 export class FeedbackController {
 

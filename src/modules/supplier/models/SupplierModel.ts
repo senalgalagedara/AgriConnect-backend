@@ -1,5 +1,5 @@
 import database from '../../../config/database';
-import { Supplier, CreateSupplierRequest, UpdateSupplierRequest, PaginationOptions } from '../../../types';
+import { Supplier, CreateSupplierRequest, UpdateSupplierRequest, PaginationOptions } from '../../..';
 
 export class SupplierModel {
 

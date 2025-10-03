@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
 import { ProvinceService } from '../services/ProvinceService';
-import { ApiResponse, CreateProvinceRequest, UpdateProvinceRequest } from '../../../types';
+import { ApiResponse, CreateProvinceRequest, UpdateProvinceRequest } from '../../..';
 
 export class ProvinceController {
 

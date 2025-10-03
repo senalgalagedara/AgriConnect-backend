@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
 import { ProductService } from '../services/ProductService';
-import { ApiResponse, CreateProductRequest, UpdateProductRequest, PaginationOptions } from '../../../types';
+import { ApiResponse, CreateProductRequest, UpdateProductRequest, PaginationOptions } from '../../..';
 
 export class ProductController {
 

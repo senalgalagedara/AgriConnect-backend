@@ -1,5 +1,5 @@
 import database from '../../../config/database';
-import { Feedback, CreateFeedbackRequest, UpdateFeedbackRequest, FeedbackFilter, PaginationOptions } from '../../../types';
+import { Feedback, CreateFeedbackRequest, UpdateFeedbackRequest, FeedbackFilter, PaginationOptions } from '../../..';
 
 export class FeedbackModel {
   

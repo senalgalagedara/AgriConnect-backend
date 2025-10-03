@@ -1,5 +1,5 @@
 import { FeedbackModel } from '../models/FeedbackModel';
-import { Feedback, CreateFeedbackRequest, UpdateFeedbackRequest, FeedbackFilter, PaginationOptions } from '../../../types';
+import { Feedback, CreateFeedbackRequest, UpdateFeedbackRequest, FeedbackFilter, PaginationOptions } from '../../..';
 
 export class FeedbackService {
 

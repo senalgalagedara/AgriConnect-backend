@@ -1,5 +1,5 @@
 import { ProvinceModel } from '../models/ProvinceModel';
-import { Province, CreateProvinceRequest, UpdateProvinceRequest, ProvinceStatistics } from '../../../types';
+import { Province, CreateProvinceRequest, UpdateProvinceRequest, ProvinceStatistics } from '../../..';
 
 export class ProvinceService {
 
