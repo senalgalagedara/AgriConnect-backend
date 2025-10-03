@@ -140,10 +140,7 @@ export class FeedbackModel {
       countParamIndex++;
     }
     
-    const countResult = await database.query(countQuery, countParams);
-    console.log('Count result:', countResult);
-    console.log('Count result rows:', countResult.rows);
-    console.log('First row:', countResult.rows[0]);
+  const countResult = await database.query(countQuery, countParams);
     const total = parseInt(countResult.rows[0]?.total || '0');
 
     // Apply sorting

@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
-import bcrypt from 'bcryptjs';
-import database from '../../../config/database';
-import { sessionMiddleware, createSession, deleteSession, sanitizeUser } from '../middleware/session';
+import { sessionMiddleware, createSession, deleteSession } from '../middleware/session';
+import { AuthService } from '../services/AuthService';
 
 const router = Router();
 
@@ -33,22 +32,19 @@ router.post('/signup', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, code: 'INVALID_ROLE', message: 'Role is required' });
     }
 
-    // Check for existing user
-    const existing = await database.query('SELECT id FROM users WHERE email = $1', [normalizedEmail]);
-    if (existing.rows.length) {
+    const exists = await AuthService.emailExists(normalizedEmail);
+    if (exists) {
       return res.status(409).json({ success: false, code: 'EMAIL_EXISTS', message: 'Email already registered' });
     }
-
-    const hash = await bcrypt.hash(password, 10);
-    const now = new Date();
-    const insert = await database.query(
-      `INSERT INTO users (id, email, password_hash, role, first_name, last_name, contact_number, address, status, created_at, updated_at)
-       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, 'active', $8, $8)
-       RETURNING *`,
-      [normalizedEmail, hash, normalizedRole, normalizeName(firstName), normalizeName(lastName), contactNumber || null, address || null, now]
-    );
-
-    const user = sanitizeUser(insert.rows[0]);
+    const user = await AuthService.createUser({
+      email: normalizedEmail,
+      password,
+      role: normalizedRole,
+      firstName: normalizeName(firstName),
+      lastName: normalizeName(lastName),
+      contactNumber: contactNumber || undefined,
+      address: address || undefined
+    });
     const session = await createSession(user.id, req.ip, req.headers['user-agent']);
 
     res.cookie('sid', session.id, {
@@ -72,16 +68,10 @@ router.post('/login', async (req: Request, res: Response) => {
     if (!isValidEmail(normalizedEmail) || !password) {
       return res.status(400).json({ success: false, code: 'INVALID_CREDENTIALS', message: 'Invalid email or password' });
     }
-    const result = await database.query('SELECT * FROM users WHERE email = $1', [normalizedEmail]);
-    if (!result.rows.length) {
+    const user = await AuthService.authenticate(normalizedEmail, password);
+    if (!user) {
       return res.status(401).json({ success: false, code: 'INVALID_CREDENTIALS', message: 'Invalid email or password' });
     }
-    const row = result.rows[0];
-    const ok = await bcrypt.compare(password, row.password_hash);
-    if (!ok) {
-      return res.status(401).json({ success: false, code: 'INVALID_CREDENTIALS', message: 'Invalid email or password' });
-    }
-    const user = sanitizeUser(row);
     const session = await createSession(user.id, req.ip, req.headers['user-agent']);
     res.cookie('sid', session.id, {
       httpOnly: true,

@@ -44,12 +44,12 @@ database.query('SELECT NOW()')
   .then(() => console.log('Database connected successfully'))
   .catch((err: Error) => console.error('Database connection error:', err));
 
-// Ensure auth tables exist (lightweight safety net if migrations not run)
+// Ensure auth tables exist (INTEGER primary keys version)
 async function ensureAuthTables() {
   try {
-    await database.query('CREATE EXTENSION IF NOT EXISTS pgcrypto');
+    // Users table with integer PK (serial). WARNING: Less globally unique than UUID.
     await database.query(`CREATE TABLE IF NOT EXISTS users (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      id SERIAL PRIMARY KEY,
       email TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
       role TEXT NOT NULL,
@@ -61,17 +61,18 @@ async function ensureAuthTables() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )`);
+    // Sessions table with integer PK and integer FK to users
     await database.query(`CREATE TABLE IF NOT EXISTS sessions (
-      id UUID PRIMARY KEY,
-      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       expires_at TIMESTAMPTZ NOT NULL,
       ip TEXT,
       user_agent TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )`);
-    console.log('Auth tables ensured');
+    console.log('Auth tables (INT PK) ensured');
   } catch (e) {
-    console.error('Failed ensuring auth tables', e);
+    console.error('Failed ensuring auth tables (INT PK)', e);
   }
 }
 ensureAuthTables();

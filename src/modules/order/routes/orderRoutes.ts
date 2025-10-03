@@ -139,7 +139,7 @@ const validateUpdateStatus = [
 // Checkout endpoint (alternative - accepts userId in body)
 router.post('/checkout', validateCheckout, OrderController.checkout);
 
-// Create order for user (primary endpoint - userId in params, UUID)
+// Create order for user (primary endpoint - userId is integer param)
 router.post('/:userId', validateUserId, validateCreateOrder, OrderController.createOrder);
 
 // Get all orders for user

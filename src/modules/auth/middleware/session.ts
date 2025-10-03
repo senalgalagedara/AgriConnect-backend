@@ -33,24 +33,26 @@ export async function sessionMiddleware(req: Request, _res: Response, next: Next
   }
 }
 
-export async function createSession(userId: string, ip: string | undefined, agent: string | undefined) {
+export async function createSession(userId: number | string, ip: string | undefined, agent: string | undefined) {
+  const numericUserId = typeof userId === 'string' ? parseInt(userId, 10) : userId;
+  if (Number.isNaN(numericUserId)) throw new Error('Invalid userId for session creation');
   const expires = new Date(Date.now() + SESSION_TTL_MINUTES * 60000);
   const result = await database.query(
-    `INSERT INTO sessions (id, user_id, expires_at, ip, user_agent)
-     VALUES (gen_random_uuid(), $1, $2, $3, $4)
-     RETURNING id, expires_at` ,
-    [userId, expires, ip || null, agent || null]
+    `INSERT INTO sessions (user_id, expires_at, ip, user_agent)
+     VALUES ($1, $2, $3, $4)
+     RETURNING id, expires_at`,
+    [numericUserId, expires, ip || null, agent || null]
   );
   return result.rows[0];
 }
 
-export async function deleteSession(id: string) {
+export async function deleteSession(id: string | number) {
   await database.query('DELETE FROM sessions WHERE id = $1', [id]);
 }
 
 export function sanitizeUser(row: any) {
   return {
-    id: row.id,
+    id: typeof row.id === 'string' ? parseInt(row.id, 10) || row.id : row.id,
     email: row.email,
     role: row.role,
     firstName: row.first_name,
