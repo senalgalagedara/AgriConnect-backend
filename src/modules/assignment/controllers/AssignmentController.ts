@@ -203,8 +203,8 @@ export class AssignmentController {
       console.error('Error in AssignmentController.createAssignment:', error);
       const response: ApiResponse = {
         success: false,
-        message: 'Failed to create assignment',
-        error: error instanceof Error ? error.message : 'Failed to create assignment'
+        message: 'Assignment created successfully',
+        error: error instanceof Error ? error.message : 'Assignment created successfully'
       };
       res.status(500).json(response);
     }

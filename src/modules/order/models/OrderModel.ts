@@ -380,4 +380,39 @@ export class OrderModel {
 
     return { orders, total };
   }
+
+  /**
+   * Get orders for admin dashboard list
+   * Returns basic fields: id, order_no (or id), customer_name, customer_phone, customer_address, quantity, status, created_at
+   */
+  static async findForAdmin(): Promise<any[]> {
+    try {
+      const query = `
+        SELECT
+          o.id as order_id,
+          COALESCE(o.order_no::text, o.id::text) as order_no,
+          (o.contact->>'firstName') || ' ' || (o.contact->>'lastName') as customer_name,
+          o.contact->>'phone' as customer_phone,
+          o.shipping->>'address' as customer_address,
+          COALESCE(SUM(oi.qty)::int, 0) as quantity,
+          o.status,
+          o.created_at
+        FROM orders o
+        LEFT JOIN order_items oi ON oi.order_id = o.id
+        GROUP BY o.id, o.order_no, o.contact, o.shipping, o.status, o.created_at
+        ORDER BY o.created_at DESC
+      `;
+
+      const result = await database.query(query);
+      return result.rows;
+    } catch (error) {
+      console.error('Error in OrderModel.findForAdmin:', error);
+      throw new Error('Failed to retrieve orders for admin');
+    }
+  }
+
+  /**
+   * NEW: Find orders for admin listing (all orders with customer/name/address/qty)
+   */
+  // (duplicate removed)
 }

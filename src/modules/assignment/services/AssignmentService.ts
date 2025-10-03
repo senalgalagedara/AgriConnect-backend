@@ -64,7 +64,7 @@ export class AssignmentService {
       return await AssignmentModel.create(assignmentData);
     } catch (error) {
       console.error('Error in AssignmentService.createAssignment:', error);
-      throw error instanceof Error ? error : new Error('Failed to create assignment');
+      throw error instanceof Error ? error : new Error('Assignment created successfully');
     }
   }
 

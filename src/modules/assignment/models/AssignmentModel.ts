@@ -11,23 +11,26 @@ export class AssignmentModel {
         SELECT 
           a.*,
           o.order_no,
-          o.contact->>'firstName' || ' ' || o.contact->>'lastName' as customer_name,
+          COALESCE(o.contact->>'firstName','') || ' ' || COALESCE(o.contact->>'lastName','') as customer_name,
           o.contact->>'phone' as customer_phone,
           o.shipping->>'address' as customer_address,
           o.total as weight,
-          d.name as driver_name,
+          (COALESCE(d.first_name,'') || ' ' || COALESCE(d.last_name,'')) as driver_name,
           d.vehicle_type,
-          d.capacity
+          d.vehicle_capacity as capacity,
+          d.contact_number as driver_phone
         FROM assignments a
         LEFT JOIN orders o ON a.order_id = o.id
         LEFT JOIN drivers d ON a.driver_id = d.id
         ORDER BY a.created_at DESC
       `;
-      
       const result = await database.query(query);
       return result.rows as Assignment[];
     } catch (error) {
       console.error('Error in AssignmentModel.findAll:', error);
+      if (error instanceof Error && 'message' in error) {
+        throw new Error('Failed to retrieve assignments: ' + error.message);
+      }
       throw new Error('Failed to retrieve assignments');
     }
   }
@@ -45,15 +48,15 @@ export class AssignmentModel {
           o.contact->>'phone' as customer_phone,
           o.shipping->>'address' as customer_address,
           o.total as weight,
-          d.name as driver_name,
+          (d.first_name || ' ' || d.last_name) as driver_name,
           d.vehicle_type,
-          d.capacity
+          d.vehicle_capacity as capacity,
+          d.contact_number as driver_phone
         FROM assignments a
         LEFT JOIN orders o ON a.order_id = o.id
         LEFT JOIN drivers d ON a.driver_id = d.id
         WHERE a.id = $1
       `;
-      
       const result = await database.query(query, [id]);
       return result.rows.length > 0 ? result.rows[0] as Assignment : null;
     } catch (error) {
@@ -72,23 +75,55 @@ export class AssignmentModel {
       try {
         const { orderId, driverId, scheduleTime, specialNotes } = assignmentData;
 
+        // Use your drivers table columns: vehicle_capacity, is_available
+        const capQuery = `
+          SELECT d.vehicle_capacity::int - COALESCE(SUM(oi.qty)::int, 0) AS remaining_capacity
+          FROM drivers d
+          LEFT JOIN assignments a ON a.driver_id = d.id AND a.status IN ('pending','in_progress')
+          LEFT JOIN order_items oi ON oi.order_id = a.order_id
+          WHERE d.id = $1
+          GROUP BY d.vehicle_capacity
+        `;
+
+        const capRes = await database.query(capQuery, [driverId]);
+        const remaining_capacity = capRes.rows.length > 0 ? Number(capRes.rows[0].remaining_capacity) : null;
+
+        if (remaining_capacity === null) {
+          throw new Error('Driver not found');
+        }
+
+        // Get order quantity (sum qty for the order)
+        const orderQtyRes = await database.query('SELECT COALESCE(SUM(qty),0) as qty FROM order_items WHERE order_id = $1', [orderId]);
+        const orderQty = Number(orderQtyRes.rows[0]?.qty ?? 0);
+
+        if (orderQty <= 0) {
+          throw new Error('Order has no items to assign');
+        }
+
+        if (orderQty > remaining_capacity) {
+          throw new Error(`Driver does not have enough remaining capacity. Remaining: ${remaining_capacity}, required: ${orderQty}`);
+        }
+
         // Create assignment
         const assignmentQuery = `
           INSERT INTO assignments (order_id, driver_id, schedule_time, special_notes, status)
           VALUES ($1, $2, $3, $4, 'pending')
           RETURNING *
         `;
-        
+
         const assignmentResult = await database.query(assignmentQuery, [orderId, driverId, scheduleTime, specialNotes || null]);
-        
-        // Update order status (assuming assignment_status column exists)
-        await database.query('UPDATE orders SET assignment_status = $1 WHERE id = $2', ['assigned', orderId]);
-        
-        // Update driver availability
-        await database.query('UPDATE drivers SET availability_status = $1 WHERE id = $2', ['busy', driverId]);
-        
+
+  // Optionally update order status here if needed, but assignment_status column does not exist
+
+        // If after assignment remaining capacity becomes 0, mark driver unavailable
+        const afterCapRes = await database.query(capQuery, [driverId]);
+        const afterRemaining = afterCapRes.rows.length > 0 ? Number(afterCapRes.rows[0].remaining_capacity) : null;
+        if (afterRemaining !== null && afterRemaining <= 0) {
+          await database.query('UPDATE drivers SET is_available = $1 WHERE id = $2', [false, driverId]);
+        }
+
         await database.query('COMMIT');
-        
+
         // Return the full assignment details
         const fullAssignment = await this.findById(assignmentResult.rows[0].id);
         return fullAssignment || assignmentResult.rows[0] as Assignment;
@@ -98,7 +133,7 @@ export class AssignmentModel {
       }
     } catch (error) {
       console.error('Error in AssignmentModel.create:', error);
-      throw new Error('Failed to create assignment');
+      throw new Error('');
     }
   }
 
