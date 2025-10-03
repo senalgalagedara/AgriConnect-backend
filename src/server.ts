@@ -45,6 +45,8 @@ app.use('/api/products', productRoutes); // New TypeScript product routes
 app.use('/api/farmers', farmerRoutes); // New TypeScript farmer routes
 app.use('/api/suppliers', supplierRoutes); // New TypeScript supplier routes
 app.use('/api/cart', cartRoutes);
+// Also expose the plural form for compatibility with frontend (/api/carts)
+app.use('/api/carts', cartRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/admin', adminRoutes);

@@ -36,6 +36,8 @@ app.use('/api/products', productRoutes);
 app.use('/api/farmers', farmerRoutes);
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/cart', cartRoutes);
+// Backward/forward compatibility: support plural route
+app.use('/api/carts', cartRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/admin', adminRoutes);
