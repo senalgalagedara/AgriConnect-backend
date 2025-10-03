@@ -5,9 +5,7 @@ const TAX_RATE = 0.065;
 const SHIPPING_FEE = 0;
 
 export class CartModel {
-  /**
-   * Ensure user has an active cart
-   */
+
   static async ensureActiveCart(userId: number): Promise<Cart> {
     try {
       const { rows } = await database.query(
@@ -22,7 +20,6 @@ export class CartModel {
         return rows[0] as Cart;
       }
 
-      // Create new cart if none exists
       const inserted = await database.query(
         `INSERT INTO carts (user_id) VALUES ($1) RETURNING id, user_id, status`,
         [userId]
@@ -34,9 +31,6 @@ export class CartModel {
     }
   }
 
-  /**
-   * Get cart with all items and totals
-   */
   static async getCartWithItems(userId: number): Promise<CartWithItems> {
     try {
       const cart = await this.ensureActiveCart(userId);
@@ -69,14 +63,11 @@ export class CartModel {
     }
   }
 
-  /**
-   * Add item to cart
-   */
+
   static async addItem(userId: number, productId: number, qty: number = 1): Promise<CartWithItems> {
     try {
       const cart = await this.ensureActiveCart(userId);
 
-      // Check product existence, status, and stock
       const productRes = await database.query(
         `SELECT id, status, current_stock, product_name FROM products WHERE id = $1`,
         [productId]
@@ -92,7 +83,6 @@ export class CartModel {
         throw new Error(`Not enough stock for product: ${product.product_name}`);
       }
 
-      // Insert or update cart item, set added_at
       await database.query(
         `INSERT INTO cart_items (cart_id, product_id, qty, added_at)
          VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
@@ -108,9 +98,7 @@ export class CartModel {
     }
   }
 
-  /**
-   * Update item quantity
-   */
+
   static async updateQty(userId: number, itemId: number, qty: number): Promise<CartWithItems> {
     try {
       const cart = await this.ensureActiveCart(userId);

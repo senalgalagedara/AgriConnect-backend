@@ -8,7 +8,7 @@ import { Order } from '../../../types/entities';
  */
 export const createOrder = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = parseInt(req.params.userId, 10);
+    const userId = parseInt(req.params.userId, 10); 
     const { contact, shipping, paymentMethod } = req.body;
 
     if (!userId || userId <= 0) {
@@ -27,15 +27,9 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
-    if (!paymentMethod) {
-      res.status(400).json({
-        success: false,
-        message: 'Payment method is required'
-      } as ApiResponse);
-      return;
-    }
+    const method = paymentMethod || 'COD';
 
-    const order = await OrderService.createOrder(userId, contact, shipping, paymentMethod);
+    const order = await OrderService.createOrder(userId, contact, shipping, method);
 
     res.status(201).json({
       success: true,
@@ -67,15 +61,9 @@ export const checkout = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    if (!paymentMethod) {
-      res.status(400).json({
-        success: false,
-        message: 'Payment method is required'
-      } as ApiResponse);
-      return;
-    }
+    const method = paymentMethod || 'COD';
 
-    const order = await OrderService.createOrder(userId, contact, shipping, paymentMethod);
+    const order = await OrderService.createOrder(userId, contact, shipping, method);
 
     res.status(201).json({
       success: true,
