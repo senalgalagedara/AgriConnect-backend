@@ -1,283 +1,182 @@
 import { Request, Response } from 'express';
-import { FeedbackService } from '../services/FeedbackService';
-import { ApiResponse, CreateFeedbackRequest, UpdateFeedbackRequest, FeedbackFilter, PaginationOptions } from '../../../types';
+import feedbackService from '../services/FeedbackService';  // import the instance
+import { 
+    CreateFeedbackRequest, 
+    UpdateFeedbackRequest, 
+    FeedbackQueryOptions,
+    FeedbackType
+} from '../types';
+
+interface ApiResponse {
+    success: boolean;
+    message?: string;
+    data?: any;
+    error?: string;
+    pagination?: {
+        page: number;
+        limit: number;
+        total: number;
+        pages?: number;
+    };
+}
 
 export class FeedbackController {
-
   /**
    * Get all feedback with filtering and pagination
    */
-  static async getAllFeedback(req: Request, res: Response): Promise<void> {
+  async getAllFeedback(req: Request, res: Response): Promise<Response> {
     try {
-      // Extract pagination parameters
       const page = req.query.page ? parseInt(req.query.page as string) : 1;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
-      const sortBy = req.query.sortBy as string || 'created_at';
-      const sortOrder = (req.query.sortOrder as string)?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
-      const pagination: PaginationOptions = {
-        page: Math.max(1, page),
-        limit: Math.min(100, Math.max(1, limit)), // Limit between 1 and 100
-        sortBy,
-        sortOrder
+      const options: FeedbackQueryOptions = {
+        limit: Math.min(100, Math.max(1, limit))
       };
 
-      // Extract filter parameters
-      const filters: FeedbackFilter = {};
-      if (req.query.user_type) filters.user_type = req.query.user_type as string;
-      if (req.query.category) filters.category = req.query.category as string;
-      if (req.query.status) filters.status = req.query.status as string;
-      if (req.query.priority) filters.priority = req.query.priority as string;
-      if (req.query.created_from) filters.created_from = new Date(req.query.created_from as string);
-      if (req.query.created_to) filters.created_to = new Date(req.query.created_to as string);
-      if (req.query.rating_min) filters.rating_min = parseInt(req.query.rating_min as string);
-      if (req.query.rating_max) filters.rating_max = parseInt(req.query.rating_max as string);
+      // compute offset from 1-based page query param
+      const offset = Math.max(0, page - 1) * options.limit!;
+      options.offset = offset;
 
-      const result = await FeedbackService.getAllFeedback(filters, pagination);
+      if (req.query.user_id) options.user_id = req.query.user_id as string;
+      if (req.query.feedback_type) options.feedback_type = req.query.feedback_type as FeedbackType;
+      if (req.query.start_date) options.startDate = new Date(req.query.start_date as string);
+      if (req.query.end_date) options.endDate = new Date(req.query.end_date as string);
+
+      const result = await feedbackService.getFeedbackList(options);
 
       const response: ApiResponse = {
         success: true,
         data: result.feedback,
         message: 'Feedback retrieved successfully',
+        pagination: {
+          page,
+          limit,
+          total: result.total,
+          pages: Math.ceil(result.total / limit)
+        }
       };
 
-      // Add pagination info to response
-      if (result.pages) {
-        (response as any).pagination = {
-          page: pagination.page,
-          limit: pagination.limit,
-          total: result.total,
-          pages: result.pages
-        };
-      }
-
-      res.json(response);
+  return res.json(response);
     } catch (error) {
       console.error('Error in FeedbackController.getAllFeedback:', error);
-      const response: ApiResponse = {
+      return res.status(500).json({
         success: false,
         message: 'Error retrieving feedback',
         error: error instanceof Error ? error.message : 'Unknown error'
-      };
-      res.status(500).json(response);
+      });
     }
   }
 
   /**
    * Get feedback by ID
    */
-  static async getFeedbackById(req: Request, res: Response): Promise<void> {
+  async getFeedbackById(req: Request, res: Response): Promise<Response> {
     try {
-      const id = parseInt(req.params.id);
-      
-      if (isNaN(id)) {
-        const response: ApiResponse = {
-          success: false,
-          message: 'Invalid feedback ID'
-        };
-        res.status(400).json(response);
-        return;
+      const id = req.params.id;
+      if (!id) {
+        return res.status(400).json({ success: false, message: 'Invalid feedback ID' });
       }
 
-      const feedback = await FeedbackService.getFeedbackById(id);
-      
+      const feedback = await feedbackService.getFeedback(id);
+
       if (!feedback) {
-        const response: ApiResponse = {
-          success: false,
-          message: 'Feedback not found'
-        };
-        res.status(404).json(response);
-        return;
+        return res.status(404).json({ success: false, message: 'Feedback not found' });
       }
 
-      const response: ApiResponse = {
-        success: true,
-        data: feedback,
-        message: 'Feedback retrieved successfully'
-      };
-      res.json(response);
+      return res.json({ success: true, data: feedback, message: 'Feedback retrieved successfully' });
     } catch (error) {
       console.error('Error in FeedbackController.getFeedbackById:', error);
-      const response: ApiResponse = {
-        success: false,
-        message: 'Error retrieving feedback',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
-      res.status(500).json(response);
+      return res.status(500).json({ success: false, message: 'Error retrieving feedback', error: error instanceof Error ? error.message : 'Unknown error' });
     }
   }
 
   /**
    * Create new feedback
    */
-  static async createFeedback(req: Request, res: Response): Promise<void> {
+  async createFeedback(req: Request, res: Response): Promise<Response> {
     try {
-      const feedbackData: CreateFeedbackRequest = req.body;
+  const feedbackData: CreateFeedbackRequest = req.body;
+  // Use session middleware's injected currentUser instead of deprecated user property
+  const userId = (req as any).currentUser?.id;
 
-      const feedback = await FeedbackService.createFeedback(feedbackData);
+      const feedback = await feedbackService.createFeedback(userId, feedbackData);
 
-      const response: ApiResponse = {
-        success: true,
-        data: feedback,
-        message: 'Feedback created successfully'
-      };
-      res.status(201).json(response);
+      return res.status(201).json({ success: true, data: feedback, message: 'Feedback created successfully' });
     } catch (error) {
       console.error('Error in FeedbackController.createFeedback:', error);
-      const response: ApiResponse = {
-        success: false,
-        message: 'Error creating feedback',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
-      res.status(400).json(response);
+      return res.status(400).json({ success: false, message: 'Error creating feedback', error: error instanceof Error ? error.message : 'Unknown error' });
     }
   }
 
   /**
-   * Update feedback (admin only)
+   * Update feedback
    */
-  static async updateFeedback(req: Request, res: Response): Promise<void> {
+  async updateFeedback(req: Request, res: Response): Promise<Response> {
     try {
-      const id = parseInt(req.params.id);
-      
-      if (isNaN(id)) {
-        const response: ApiResponse = {
-          success: false,
-          message: 'Invalid feedback ID'
-        };
-        res.status(400).json(response);
-        return;
-      }
-
+      const id = req.params.id;
       const updateData: UpdateFeedbackRequest = req.body;
-      const feedback = await FeedbackService.updateFeedback(id, updateData);
+
+      const feedback = await feedbackService.updateFeedback(id, updateData);
 
       if (!feedback) {
-        const response: ApiResponse = {
-          success: false,
-          message: 'Feedback not found'
-        };
-        res.status(404).json(response);
-        return;
+        return res.status(404).json({ success: false, message: 'Feedback not found' });
       }
 
-      const response: ApiResponse = {
-        success: true,
-        data: feedback,
-        message: 'Feedback updated successfully'
-      };
-      res.json(response);
+      return res.json({ success: true, data: feedback, message: 'Feedback updated successfully' });
     } catch (error) {
       console.error('Error in FeedbackController.updateFeedback:', error);
-      const response: ApiResponse = {
-        success: false,
-        message: 'Error updating feedback',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
-      res.status(400).json(response);
+      return res.status(400).json({ success: false, message: 'Error updating feedback', error: error instanceof Error ? error.message : 'Unknown error' });
     }
   }
 
   /**
-   * Delete feedback (admin only)
+   * Delete feedback
    */
-  static async deleteFeedback(req: Request, res: Response): Promise<void> {
+  async deleteFeedback(req: Request, res: Response): Promise<Response> {
     try {
-      const id = parseInt(req.params.id);
-      
-      if (isNaN(id)) {
-        const response: ApiResponse = {
-          success: false,
-          message: 'Invalid feedback ID'
-        };
-        res.status(400).json(response);
-        return;
-      }
-
-      const deleted = await FeedbackService.deleteFeedback(id);
+      const id = req.params.id;
+      const deleted = await feedbackService.deleteFeedback(id);
 
       if (!deleted) {
-        const response: ApiResponse = {
-          success: false,
-          message: 'Feedback not found'
-        };
-        res.status(404).json(response);
-        return;
+        return res.status(404).json({ success: false, message: 'Feedback not found' });
       }
 
-      const response: ApiResponse = {
-        success: true,
-        message: 'Feedback deleted successfully'
-      };
-      res.json(response);
+      return res.json({ success: true, message: 'Feedback deleted successfully' });
     } catch (error) {
       console.error('Error in FeedbackController.deleteFeedback:', error);
-      const response: ApiResponse = {
-        success: false,
-        message: 'Error deleting feedback',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
-      res.status(500).json(response);
+      return res.status(500).json({ success: false, message: 'Error deleting feedback', error: error instanceof Error ? error.message : 'Unknown error' });
     }
   }
 
   /**
    * Get feedback statistics
    */
-  static async getFeedbackStatistics(req: Request, res: Response): Promise<void> {
+  async getFeedbackStatistics(req: Request, res: Response): Promise<Response> {
     try {
-      const statistics = await FeedbackService.getFeedbackStatistics();
-
-      const response: ApiResponse = {
-        success: true,
-        data: statistics,
-        message: 'Feedback statistics retrieved successfully'
-      };
-      res.json(response);
+      const statistics = await feedbackService.getFeedbackStatistics();
+      return res.json({ success: true, data: statistics, message: 'Feedback statistics retrieved successfully' });
     } catch (error) {
       console.error('Error in FeedbackController.getFeedbackStatistics:', error);
-      const response: ApiResponse = {
-        success: false,
-        message: 'Error retrieving feedback statistics',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
-      res.status(500).json(response);
+      return res.status(500).json({ success: false, message: 'Error retrieving statistics', error: error instanceof Error ? error.message : 'Unknown error' });
     }
   }
 
   /**
    * Get feedback by user
    */
-  static async getFeedbackByUser(req: Request, res: Response): Promise<void> {
+  async getFeedbackByUser(req: Request, res: Response): Promise<Response> {
     try {
       const userId = parseInt(req.params.userId);
-      const userType = req.params.userType;
-      
       if (isNaN(userId)) {
-        const response: ApiResponse = {
-          success: false,
-          message: 'Invalid user ID'
-        };
-        res.status(400).json(response);
-        return;
+        return res.status(400).json({ success: false, message: 'Invalid user ID' });
       }
 
-      const feedback = await FeedbackService.getFeedbackByUser(userId, userType);
+      const feedback = await feedbackService.getFeedbackByUser(userId);
 
-      const response: ApiResponse = {
-        success: true,
-        data: feedback,
-        message: 'User feedback retrieved successfully'
-      };
-      res.json(response);
+      return res.json({ success: true, data: feedback, message: 'User feedback retrieved successfully' });
     } catch (error) {
       console.error('Error in FeedbackController.getFeedbackByUser:', error);
-      const response: ApiResponse = {
-        success: false,
-        message: 'Error retrieving user feedback',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
-      res.status(500).json(response);
+      return res.status(500).json({ success: false, message: 'Error retrieving user feedback', error: error instanceof Error ? error.message : 'Unknown error' });
     }
   }
 }

@@ -2,6 +2,9 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import { FeedbackController } from '../controllers/FeedbackController';
 
+// instantiate controller
+const controller = new FeedbackController();
+
 const router = Router();
 
 // Validation middleware for creating feedback
@@ -18,6 +21,12 @@ const validateCreateFeedback = [
     .withMessage('Comment is required')
     .isLength({ min: 1, max: 5000 })
     .withMessage('Comment must be between 1 and 5000 characters'),
+
+  // Feedback type (new column)
+  body('feedback_type')
+    .optional()
+    .isIn(['user-experience', 'performance', 'product-service', 'transactional'])
+    .withMessage('Invalid feedback_type'),
   
   // Meta data is optional
   body('meta')
@@ -64,6 +73,11 @@ const validateUpdateFeedback = [
     .optional()
     .isIn(['pending', 'in_progress', 'resolved', 'closed'])
     .withMessage('Invalid status'),
+
+  body('feedback_type')
+    .optional()
+    .isIn(['user-experience', 'performance', 'product-service', 'transactional'])
+    .withMessage('Invalid feedback_type'),
   
   body('priority')
     .optional()
@@ -83,12 +97,12 @@ const validateUpdateFeedback = [
 ];
 
 // Routes
-router.get('/', FeedbackController.getAllFeedback);
-router.get('/statistics', FeedbackController.getFeedbackStatistics);
-router.get('/user/:userType/:userId', FeedbackController.getFeedbackByUser);
-router.get('/:id', FeedbackController.getFeedbackById);
-router.post('/', validateCreateFeedback, FeedbackController.createFeedback);
-router.put('/:id', validateUpdateFeedback, FeedbackController.updateFeedback);
-router.delete('/:id', FeedbackController.deleteFeedback);
+router.get('/', controller.getAllFeedback.bind(controller));
+router.get('/statistics', controller.getFeedbackStatistics.bind(controller));
+router.get('/user/:userType/:userId', controller.getFeedbackByUser.bind(controller));
+router.get('/:id', controller.getFeedbackById.bind(controller));
+router.post('/', validateCreateFeedback, controller.createFeedback.bind(controller));
+router.put('/:id', validateUpdateFeedback, controller.updateFeedback.bind(controller));
+router.delete('/:id', controller.deleteFeedback.bind(controller));
 
 export default router;
