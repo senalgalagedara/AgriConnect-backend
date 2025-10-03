@@ -4,6 +4,7 @@ dotenv.config();
 
 import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import database from './config/database';
 
 // Import TypeScript routes
@@ -21,6 +22,8 @@ import adminRoutes from './modules/admin/routes/adminRoutes';
 import driverRoutes from './modules/driver/routes/driverRoutes';
 import assignmentRoutes from './modules/assignment/routes/assignmentRoutes';
 import dashboardRoutes from './modules/dashboard/routes/dashboardRoutes';
+import authRoutes from './modules/auth/routes/authRoutes';
+import { sessionMiddleware } from './modules/auth/middleware/session';
 
 const app: Application = express();
 const PORT = process.env.PORT || 5000;
@@ -32,13 +35,49 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+// Attach session middleware early so downstream routes have currentUser
+app.use(sessionMiddleware);
 
 // Test database connection
 database.query('SELECT NOW()')
   .then(() => console.log('Database connected successfully'))
   .catch((err: Error) => console.error('Database connection error:', err));
 
+// Ensure auth tables exist (lightweight safety net if migrations not run)
+async function ensureAuthTables() {
+  try {
+    await database.query('CREATE EXTENSION IF NOT EXISTS pgcrypto');
+    await database.query(`CREATE TABLE IF NOT EXISTS users (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      email TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      role TEXT NOT NULL,
+      first_name TEXT,
+      last_name TEXT,
+      contact_number TEXT,
+      address TEXT,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`);
+    await database.query(`CREATE TABLE IF NOT EXISTS sessions (
+      id UUID PRIMARY KEY,
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      expires_at TIMESTAMPTZ NOT NULL,
+      ip TEXT,
+      user_agent TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`);
+    console.log('Auth tables ensured');
+  } catch (e) {
+    console.error('Failed ensuring auth tables', e);
+  }
+}
+ensureAuthTables();
+
 // Routes
+app.use('/api/auth', authRoutes);
 app.use('/api/feedback', feedbackRoutes); // New TypeScript feedback routes
 app.use('/api/provinces', provinceRoutes); // New TypeScript province routes
 app.use('/api/products', productRoutes); // New TypeScript product routes
@@ -123,6 +162,13 @@ app.listen(PORT, () => {
   console.log(`Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`Health check: http://localhost:${PORT}/api/health`);
+});
+
+// Diagnostics: log unexpected exits
+['beforeExit','exit','SIGINT','SIGTERM','uncaughtException','unhandledRejection'].forEach(ev => {
+  process.on(ev as any, (arg: any) => {
+    console.log(`[process:${ev}]`, arg instanceof Error ? { message: arg.message, stack: arg.stack } : arg);
+  });
 });
 
 export default app;
