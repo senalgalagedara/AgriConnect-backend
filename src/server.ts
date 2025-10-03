@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import express, { Application, Request, Response } from 'express';
+import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import database from './config/database';
 
@@ -20,6 +21,8 @@ import paymentRoutes from './modules/payment/routes/paymentRoutes';
 import adminRoutes from './modules/admin/routes/adminRoutes';
 import driverRoutes from './modules/driver/routes/driverRoutes';
 import assignmentRoutes from './modules/assignment/routes/assignmentRoutes';
+import authRoutes from './modules/auth/routes/authRoutes';
+import { sessionMiddleware } from './modules/auth/middleware/session';
 
 const app: Application = express();
 const PORT = process.env.PORT || 5000;
@@ -31,6 +34,8 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+app.use(sessionMiddleware);
 
 // Test database connection
 database.query('SELECT NOW()')
@@ -39,6 +44,8 @@ database.query('SELECT NOW()')
 
 // Routes
 app.use('/api/feedback', feedbackRoutes); // New TypeScript feedback routes
+// Also expose non-prefixed route so frontend can post to /feedback when NEXT_PUBLIC_API_URL is the root
+app.use('/feedback', feedbackRoutes);
 app.use('/api/provinces', provinceRoutes); // New TypeScript province routes
 app.use('/api/products', productRoutes); // New TypeScript product routes
 app.use('/api/farmers', farmerRoutes); // New TypeScript farmer routes
@@ -49,6 +56,7 @@ app.use('/api/payment', paymentRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/drivers', driverRoutes);
 app.use('/api/assignments', assignmentRoutes);
+app.use('/api/auth', authRoutes);
 
 // Health check route
 app.get('/api/health', async (req: Request, res: Response) => {

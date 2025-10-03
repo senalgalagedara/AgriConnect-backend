@@ -10,6 +10,7 @@ export class FeedbackModel {
     return {
       ...dbRecord,
       comment: dbRecord.message, // Map 'message' to 'comment' for frontend
+      feedback_type: dbRecord.feedback_type || 'transactional',
       meta: dbRecord.meta ? (typeof dbRecord.meta === 'string' ? JSON.parse(dbRecord.meta) : dbRecord.meta) : undefined
     };
   }
@@ -195,23 +196,29 @@ export class FeedbackModel {
   static async create(feedbackData: CreateFeedbackRequest): Promise<Feedback> {
     const query = `
       INSERT INTO feedback (
-        user_id, user_type, category, subject, message, 
+        user_id, user_type, category, feedback_type, subject, message, 
         rating, priority, attachments, meta
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *
     `;
     
     const values = [
-      feedbackData.user_id || null,
-      feedbackData.user_type || 'anonymous',
-      feedbackData.category || 'general',
-      feedbackData.subject || 'Feedback', // Default subject if not provided
-      feedbackData.comment, // Map frontend 'comment' to backend 'message'
-      feedbackData.rating, // Required field
-      feedbackData.priority || 'medium',
-      feedbackData.attachments ? JSON.stringify(feedbackData.attachments) : null,
-      feedbackData.meta ? JSON.stringify(feedbackData.meta) : null
+      (feedbackData as any).user_id || null,
+      (feedbackData as any).user_type || 'anonymous',
+      (feedbackData as any).category || 'general',
+      (feedbackData as any).feedback_type || 'transactional',
+      (feedbackData as any).subject || 'Feedback', // Default subject if not provided
+      (feedbackData as any).comment, // Map frontend 'comment' to backend 'message'
+      (feedbackData as any).rating, // Required field
+      (feedbackData as any).priority || 'medium',
+      (feedbackData as any).attachments ? JSON.stringify((feedbackData as any).attachments) : null,
+      (feedbackData as any).meta ? JSON.stringify((feedbackData as any).meta) : null
     ];
+
+    // Debug: log the query and values so we can verify which columns/params are sent to Postgres
+    console.log('[FeedbackModel.create] query:', query.replace(/\s+/g, ' ').trim());
+    console.log('[FeedbackModel.create] values:', values);
+    console.log('[FeedbackModel.create] feedback_type param value:', values[3]);
 
     const result = await database.query(query, values);
     

@@ -16,6 +16,7 @@ sql/
 ├── 07-driver-queries.sql       # Driver management operations
 ├── 08-assignment-queries.sql   # Delivery assignment operations
 ├── 09-feedback-queries.sql     # Feedback system operations
+├── migrations/20251003_add_feedback_type.sql  # Migration to add feedback_type column
 ├── 10-payment-queries.sql      # Payment processing operations
 ├── 11-admin-queries.sql        # Admin and system management operations
 └── README.md                   # This documentation file
