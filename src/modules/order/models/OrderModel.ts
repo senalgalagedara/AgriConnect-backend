@@ -390,16 +390,19 @@ export class OrderModel {
       const query = `
         SELECT
           o.id as order_id,
+          o.id as id,
           COALESCE(o.order_no::text, o.id::text) as order_no,
           (o.contact->>'firstName') || ' ' || (o.contact->>'lastName') as customer_name,
+          o.contact->>'email' as customer_email,
           o.contact->>'phone' as customer_phone,
           o.shipping->>'address' as customer_address,
           COALESCE(SUM(oi.qty)::int, 0) as quantity,
           o.status,
+          o.total,
           o.created_at
         FROM orders o
         LEFT JOIN order_items oi ON oi.order_id = o.id
-        GROUP BY o.id, o.order_no, o.contact, o.shipping, o.status, o.created_at
+        GROUP BY o.id, o.order_no, o.contact, o.shipping, o.status, o.created_at, o.total
         ORDER BY o.created_at DESC
       `;
 
