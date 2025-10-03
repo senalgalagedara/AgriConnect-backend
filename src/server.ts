@@ -20,6 +20,7 @@ import paymentRoutes from './modules/payment/routes/paymentRoutes';
 import adminRoutes from './modules/admin/routes/adminRoutes';
 import driverRoutes from './modules/driver/routes/driverRoutes';
 import assignmentRoutes from './modules/assignment/routes/assignmentRoutes';
+import dashboardRoutes from './modules/dashboard/routes/dashboardRoutes';
 
 const app: Application = express();
 const PORT = process.env.PORT || 5000;
@@ -49,6 +50,7 @@ app.use('/api/payment', paymentRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/drivers', driverRoutes);
 app.use('/api/assignments', assignmentRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Health check route
 app.get('/api/health', async (req: Request, res: Response) => {
