@@ -12,18 +12,27 @@ declare module 'express-serve-static-core' {
   }
 }
 
-export async function sessionMiddleware(req: Request, _res: Response, next: NextFunction) {
+export async function sessionMiddleware(req: Request, res: Response, next: NextFunction) {
   try {
     const sid = (req as any).cookies?.sid;
-    if (!sid) return next();
+    if (!sid) {
+      return next();
+    }
+    // If sid is a legacy UUID (contains dash or non-digits) but DB expects integer IDs, clear it and continue.
+    if (!/^\d+$/.test(sid)) {
+      res.clearCookie('sid', { path: '/' });
+      return next();
+    }
     await database.query('DELETE FROM sessions WHERE expires_at < NOW()');
     const result = await database.query(
       `SELECT s.id as session_id, u.* FROM sessions s
        JOIN users u ON u.id = s.user_id
        WHERE s.id = $1 AND s.expires_at > NOW()`,
-      [sid]
+      [parseInt(sid, 10)]
     );
-    if (!result.rows.length) return next();
+    if (!result.rows.length) {
+      return next();
+    }
     req.currentUser = sanitizeUser(result.rows[0]);
     req.sessionId = sid;
     return next();

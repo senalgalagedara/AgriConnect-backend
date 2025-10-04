@@ -3,6 +3,28 @@ import { Feedback, CreateFeedbackRequest, UpdateFeedbackRequest, FeedbackFilter,
 
 export class FeedbackService {
 
+  private static normalizeType(raw?: string): string | undefined {
+    if (!raw) return undefined;
+    const v = raw.trim().toLowerCase();
+    const map: Record<string,string> = {
+      'user experience': 'user_experience',
+      'user_experience': 'user_experience',
+      'ux': 'user_experience',
+      'performance': 'performance',
+      'perf': 'performance',
+      'product / service': 'product_service',
+      'product-service': 'product_service',
+      'product_service': 'product_service',
+      'service': 'product_service',
+      'feature_request': 'product_service',
+      'feature request': 'product_service',
+      'bug_report': 'performance',
+      'bug report': 'performance',
+      'transactional': 'transactional'
+    };
+    return map[v] || undefined;
+  }
+
   /**
    * Get all feedback with filtering and pagination
    */
@@ -49,13 +71,23 @@ export class FeedbackService {
    */
   static async createFeedback(feedbackData: CreateFeedbackRequest): Promise<Feedback> {
     try {
+      // Support camelCase from frontend (feedbackType) mapping to feedback_type
+      if ((feedbackData as any).feedbackType && !feedbackData.feedback_type) {
+        (feedbackData as any).feedback_type = (feedbackData as any).feedbackType;
+      }
+      // Normalize legacy or label forms
+      if (feedbackData.feedback_type) {
+        const norm = this.normalizeType(feedbackData.feedback_type as unknown as string);
+        if (norm) (feedbackData as any).feedback_type = norm;
+      }
       // Validate required fields for frontend compatibility
       if (!feedbackData.rating || feedbackData.rating < 1 || feedbackData.rating > 5) {
         throw new Error('Rating is required and must be between 1 and 5');
       }
       
+      // Comment now optional; provide a fallback if missing/blank
       if (!feedbackData.comment || feedbackData.comment.trim().length === 0) {
-        throw new Error('Comment is required');
+        (feedbackData as any).comment = '';
       }
       
       // Validate optional meta field
@@ -64,7 +96,7 @@ export class FeedbackService {
       }
       
       // Validate comment length
-      if (feedbackData.comment.length > 5000) {
+      if (feedbackData.comment && feedbackData.comment.length > 5000) {
         throw new Error('Comment must not exceed 5000 characters');
       }
 
@@ -87,6 +119,14 @@ export class FeedbackService {
     try {
       if (!id || id <= 0) {
         throw new Error('Invalid feedback ID');
+      }
+      // Map camelCase to snake if provided in updates
+      if ((updateData as any).feedbackType && !(updateData as any).feedback_type) {
+        (updateData as any).feedback_type = (updateData as any).feedbackType;
+      }
+      if ((updateData as any).feedback_type) {
+        const norm = this.normalizeType((updateData as any).feedback_type);
+        if (norm) (updateData as any).feedback_type = norm;
       }
 
       // Check if feedback exists

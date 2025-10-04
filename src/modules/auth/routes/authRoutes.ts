@@ -32,6 +32,7 @@ router.post('/signup', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, code: 'INVALID_ROLE', message: 'Role is required' });
     }
 
+    // Pre-check (still keep DB unique safety net)
     const exists = await AuthService.emailExists(normalizedEmail);
     if (exists) {
       return res.status(409).json({ success: false, code: 'EMAIL_EXISTS', message: 'Email already registered' });
@@ -50,11 +51,16 @@ router.post('/signup', async (req: Request, res: Response) => {
     res.cookie('sid', session.id, {
       httpOnly: true,
       sameSite: 'lax',
+      path: '/',
+      secure: false, // set true when behind HTTPS
       maxAge: 30 * 24 * 60 * 60 * 1000
     });
 
     return res.status(201).json({ success: true, user });
   } catch (err: any) {
+    if (err?.code === '23505') {
+      return res.status(409).json({ success: false, code: 'EMAIL_EXISTS', message: 'Email already registered' });
+    }
     console.error('[signup] error', err);
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
@@ -76,6 +82,8 @@ router.post('/login', async (req: Request, res: Response) => {
     res.cookie('sid', session.id, {
       httpOnly: true,
       sameSite: 'lax',
+      path: '/',
+      secure: false,
       maxAge: 30 * 24 * 60 * 60 * 1000
     });
     return res.json({ success: true, user });

@@ -2,7 +2,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-import express, { Application, Request, Response } from 'express';
+import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import database from './config/database';
@@ -24,13 +24,22 @@ import assignmentRoutes from './modules/assignment/routes/assignmentRoutes';
 import dashboardRoutes from './modules/dashboard/routes/dashboardRoutes';
 import authRoutes from './modules/auth/routes/authRoutes';
 import { sessionMiddleware } from './modules/auth/middleware/session';
+import { FeedbackModel } from './modules/feedback/models/FeedbackModel';
 
 const app: Application = express();
 const PORT = process.env.PORT || 5000;
 
+// Allow multiple dev origins (comma separated) e.g. FRONTEND_URL="http://localhost:3000,http://127.0.0.1:3000"
+const rawOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000').split(',').map(o => o.trim());
+const allowedOrigins = new Set(rawOrigins);
+
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true); // allow same-origin / curl
+    if (allowedOrigins.has(origin)) return callback(null, true);
+    return callback(new Error('CORS: Origin not allowed')); 
+  },
   credentials: true
 }));
 app.use(express.json());
@@ -44,38 +53,7 @@ database.query('SELECT NOW()')
   .then(() => console.log('Database connected successfully'))
   .catch((err: Error) => console.error('Database connection error:', err));
 
-// Ensure auth tables exist (INTEGER primary keys version)
-async function ensureAuthTables() {
-  try {
-    // Users table with integer PK (serial). WARNING: Less globally unique than UUID.
-    await database.query(`CREATE TABLE IF NOT EXISTS users (
-      id SERIAL PRIMARY KEY,
-      email TEXT NOT NULL UNIQUE,
-      password_hash TEXT NOT NULL,
-      role TEXT NOT NULL,
-      first_name TEXT,
-      last_name TEXT,
-      contact_number TEXT,
-      address TEXT,
-      status TEXT NOT NULL DEFAULT 'active',
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )`);
-    // Sessions table with integer PK and integer FK to users
-    await database.query(`CREATE TABLE IF NOT EXISTS sessions (
-      id SERIAL PRIMARY KEY,
-      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      expires_at TIMESTAMPTZ NOT NULL,
-      ip TEXT,
-      user_agent TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )`);
-    console.log('Auth tables (INT PK) ensured');
-  } catch (e) {
-    console.error('Failed ensuring auth tables (INT PK)', e);
-  }
-}
-ensureAuthTables();
+// NOTE: Runtime table creation removed. Schema is now managed exclusively via SQL migrations.
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -91,6 +69,12 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/drivers', driverRoutes);
 app.use('/api/assignments', assignmentRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+
+// Debug endpoint to verify active feedback INSERT template (should not contain category)
+app.get('/api/debug/feedback-insert', (req: Request, res: Response) => {
+  const template = FeedbackModel.getInsertTemplate();
+  res.json({ success: true, template, containsCategory: /category/i.test(template) });
+});
 
 // Health check route
 app.get('/api/health', async (req: Request, res: Response) => {

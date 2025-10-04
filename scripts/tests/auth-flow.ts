@@ -39,7 +39,7 @@ async function run() {
   // Login
   const loginRes = await fetch(`${base}/api/auth/login`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Cookie: `sid=${sid}` },
     body: JSON.stringify({ email, password })
   });
   const loginBody: any = await loginRes.json().catch(() => ({}));

@@ -212,7 +212,7 @@ CREATE TABLE IF NOT EXISTS feedback (
   id SERIAL PRIMARY KEY,
   user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
   user_type TEXT,
-  category TEXT,
+  feedback_type TEXT NOT NULL DEFAULT 'transactional',
   subject TEXT,
   message TEXT NOT NULL,
   rating INTEGER NOT NULL,
@@ -229,6 +229,7 @@ CREATE TABLE IF NOT EXISTS feedback (
 CREATE INDEX IF NOT EXISTS idx_feedback_status ON feedback(status);
 CREATE INDEX IF NOT EXISTS idx_feedback_user ON feedback(user_id);
 CREATE INDEX IF NOT EXISTS idx_feedback_rating ON feedback(rating);
+CREATE INDEX IF NOT EXISTS idx_feedback_feedback_type ON feedback(feedback_type);
 
 /* ================= TRIGGERS ================= */
 -- Drop and recreate updated_at triggers for all tables that have updated_at
