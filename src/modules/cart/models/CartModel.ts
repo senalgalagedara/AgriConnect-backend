@@ -5,13 +5,14 @@ const TAX_RATE = 0.065;
 const SHIPPING_FEE = 0;
 
 export class CartModel {
-  /**
-   * Ensure user has an active cart
-   */
+
   static async ensureActiveCart(userId: number): Promise<Cart> {
     try {
       const { rows } = await database.query(
-        `SELECT * FROM carts WHERE user_id = $1 AND status = 'active' LIMIT 1`,
+        `SELECT id, user_id, status 
+         FROM carts 
+         WHERE user_id = $1 AND status = 'active' 
+         LIMIT 1`,
         [userId]
       );
       
@@ -19,9 +20,8 @@ export class CartModel {
         return rows[0] as Cart;
       }
 
-      // Create new cart if none exists
       const inserted = await database.query(
-        `INSERT INTO carts (user_id) VALUES ($1) RETURNING *`,
+        `INSERT INTO carts (user_id) VALUES ($1) RETURNING id, user_id, status`,
         [userId]
       );
       return inserted.rows[0] as Cart;
@@ -31,15 +31,12 @@ export class CartModel {
     }
   }
 
-  /**
-   * Get cart with all items and totals
-   */
   static async getCartWithItems(userId: number): Promise<CartWithItems> {
     try {
       const cart = await this.ensureActiveCart(userId);
       
       const items = await database.query(
-        `SELECT ci.id, ci.qty, p.id AS product_id, p.product_name as name, p.final_price as price
+        `SELECT ci.id, ci.cart_id, ci.qty, p.id AS product_id, p.product_name as name, p.final_price as price
          FROM cart_items ci 
          JOIN products p ON p.id = ci.product_id
          WHERE ci.cart_id = $1 
@@ -66,31 +63,42 @@ export class CartModel {
     }
   }
 
-  /**
-   * Add item to cart
-   */
+
   static async addItem(userId: number, productId: number, qty: number = 1): Promise<CartWithItems> {
     try {
       const cart = await this.ensureActiveCart(userId);
-      
+
+      const productRes = await database.query(
+        `SELECT id, status, current_stock, product_name FROM products WHERE id = $1`,
+        [productId]
+      );
+      if (!productRes.rows[0]) {
+        throw new Error('Product not found');
+      }
+      const product = productRes.rows[0];
+      if (product.status !== 'active') {
+        throw new Error('Product is not available for sale');
+      }
+      if (Number(product.current_stock) < qty) {
+        throw new Error(`Not enough stock for product: ${product.product_name}`);
+      }
+
       await database.query(
-        `INSERT INTO cart_items (cart_id, product_id, qty)
-         VALUES ($1, $2, $3)
+        `INSERT INTO cart_items (cart_id, product_id, qty, added_at)
+         VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
          ON CONFLICT (cart_id, product_id) 
-         DO UPDATE SET qty = cart_items.qty + EXCLUDED.qty`,
+         DO UPDATE SET qty = cart_items.qty + EXCLUDED.qty, added_at = CURRENT_TIMESTAMP`,
         [cart.id, productId, qty]
       );
 
       return this.getCartWithItems(userId);
     } catch (error) {
       console.error('Error in CartModel.addItem:', error);
-      throw new Error('Failed to add item to cart');
+      throw new Error(error instanceof Error ? error.message : 'Failed to add item to cart');
     }
   }
 
-  /**
-   * Update item quantity
-   */
+
   static async updateQty(userId: number, itemId: number, qty: number): Promise<CartWithItems> {
     try {
       const cart = await this.ensureActiveCart(userId);

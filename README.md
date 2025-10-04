@@ -487,3 +487,38 @@ This project is licensed under the ISC License - see the [LICENSE](LICENSE) file
 Give a ⭐️ if this project helped you!
 
 **Built with ❤️ for the Agricultural Community**
+
+---
+
+## 🔄 Recent Refactors (2025-10)
+
+### Integer Primary Keys for Auth
+Auth tables (`users`, `sessions`) migrated from UUID to INTEGER (SERIAL) IDs for consistency with other modules. Destructive migration script:
+`scripts/migrations/20251004_refactor_users_to_int.sql`
+
+If domain tables (`carts`, `orders`, `feedback`) were created after that migration, re-run the FK `ALTER TABLE` statements from the script.
+
+### Updated_at Triggers
+`scripts/migrations/20251004_add_updated_at_triggers.sql` adds a generic `set_updated_at()` trigger for `users` and `sessions` to keep `updated_at` current on UPDATE.
+
+### AuthService Abstraction
+File: `src/modules/auth/services/AuthService.ts`
+Provides:
+* `createUser()` – handles hashing + insert
+* `emailExists()` – duplicate check
+* `authenticate()` – credential validation
+* `getUserById()` – fetch + sanitize
+
+Routes (`authRoutes.ts`) now delegate core logic to this service for cleaner controllers.
+
+### Testing Auth Flow
+Script (Node): `scripts/tests/auth-flow.ts` – runs signup → session → login. Requires server on `http://localhost:5000`.
+PowerShell quick test: `scripts/auth-session-test.ps1`.
+
+### Recommended Next Enhancements
+* Replace ad-hoc console logging with structured logger (pino/winston)
+* Add Jest test harness (integration + unit tests)
+* Introduce rate limiting and brute-force protection on `/api/auth/login`
+* Harden session cookie with `secure: true` behind HTTPS
+
+---

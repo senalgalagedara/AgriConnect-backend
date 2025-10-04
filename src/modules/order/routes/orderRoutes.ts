@@ -1,109 +1,160 @@
 import { Router } from 'express';
-import { body, param, query } from 'express-validator';
+import { body, param } from 'express-validator';
 import * as OrderController from '../controllers/OrderController';
 
 const router = Router();
 
-// Validation middleware for order ID parameter
+/** =========================
+ * Validation middleware
+ * ======================== */
+
+// userId is an integer
+const validateUserId = [
+  param('userId')
+    .isInt({ min: 1 })
+    .withMessage('User ID must be a positive integer'),
+];
+
 const validateOrderId = [
   param('orderId')
     .isInt({ min: 1 })
-    .withMessage('Order ID must be a positive integer')
+    .withMessage('Order ID must be a positive integer'),
 ];
 
-// Validation middleware for checkout
-const validateCheckout = [
-  body('userId')
-    .isInt({ min: 1 })
-    .withMessage('User ID must be a positive integer'),
+const validateCreateOrder = [
+  body('contact')
+    .isObject()
+    .withMessage('Contact information is required'),
   body('contact.firstName')
+    .isString()
     .trim()
     .notEmpty()
     .withMessage('First name is required'),
   body('contact.lastName')
+    .isString()
     .trim()
     .notEmpty()
     .withMessage('Last name is required'),
   body('contact.email')
     .isEmail()
-    .withMessage('Valid email address is required'),
+    .withMessage('Valid email is required'),
   body('contact.phone')
+    .isString()
     .trim()
     .notEmpty()
     .withMessage('Phone number is required'),
+
+  body('shipping')
+    .isObject()
+    .withMessage('Shipping information is required'),
   body('shipping.address')
+    .isString()
     .trim()
     .notEmpty()
-    .withMessage('Shipping address is required'),
+    .withMessage('Address is required'),
   body('shipping.city')
+    .isString()
     .trim()
     .notEmpty()
     .withMessage('City is required'),
   body('shipping.state')
+    .isString()
     .trim()
     .notEmpty()
     .withMessage('State is required'),
-  body('shipping.zipCode')
+  body('shipping.postalCode')
+    .isString()
     .trim()
     .notEmpty()
-    .withMessage('ZIP code is required')
+    .withMessage('Postal code is required'),
+
+  body('paymentMethod')
+    .isIn(['COD', 'CARD'])
+    .withMessage('Payment method must be either COD or CARD'),
 ];
 
-// Validation middleware for marking as paid
-const validateMarkPaid = [
-  body('method')
-    .trim()
-    .notEmpty()
-    .withMessage('Payment method is required')
-    .isIn(['credit_card', 'debit_card', 'paypal', 'bank_transfer', 'cash'])
-    .withMessage('Invalid payment method'),
-  body('cardLast4')
-    .optional()
-    .matches(/^\d{4}$/)
-    .withMessage('Card last 4 digits must be exactly 4 numeric characters')
-];
-
-// Validation middleware for status update
-const validateStatusUpdate = [
-  body('status')
-    .trim()
-    .notEmpty()
-    .withMessage('Order status is required')
-    .isIn(['pending', 'paid', 'processing', 'shipped', 'delivered', 'cancelled'])
-    .withMessage('Invalid order status')
-];
-
-// Validation middleware for paid orders query
-const validatePaidOrdersQuery = [
-  query('page')
-    .optional()
+const validateCheckout = [
+  body('userId')
     .isInt({ min: 1 })
-    .withMessage('Page must be a positive integer'),
-  query('limit')
-    .optional()
-    .isInt({ min: 1, max: 100 })
-    .withMessage('Limit must be between 1 and 100'),
-  query('order_no')
-    .optional()
-    .trim(),
-  query('customer_email')
-    .optional()
-    .trim(),
-  query('created_from')
-    .optional()
-    .isISO8601()
-    .withMessage('Invalid created_from date format'),
-  query('created_to')
-    .optional()
-    .isISO8601()
-    .withMessage('Invalid created_to date format')
+    .withMessage('User ID must be a positive integer'),
+
+  body('contact')
+    .isObject()
+    .withMessage('Contact information is required'),
+  body('contact.firstName')
+    .isString()
+    .trim()
+    .notEmpty()
+    .withMessage('First name is required'),
+  body('contact.lastName')
+    .isString()
+    .trim()
+    .notEmpty()
+    .withMessage('Last name is required'),
+  body('contact.email')
+    .isEmail()
+    .withMessage('Valid email is required'),
+  body('contact.phone')
+    .isString()
+    .trim()
+    .notEmpty()
+    .withMessage('Phone number is required'),
+
+  body('shipping')
+    .isObject()
+    .withMessage('Shipping information is required'),
+  body('shipping.address')
+    .isString()
+    .trim()
+    .notEmpty()
+    .withMessage('Address is required'),
+  body('shipping.city')
+    .isString()
+    .trim()
+    .notEmpty()
+    .withMessage('City is required'),
+  body('shipping.state')
+    .isString()
+    .trim()
+    .notEmpty()
+    .withMessage('State is required'),
+  body('shipping.postalCode')
+    .isString()
+    .trim()
+    .notEmpty()
+    .withMessage('Postal code is required'),
+
+  body('paymentMethod')
+    .isIn(['COD', 'CARD'])
+    .withMessage('Payment method must be either COD or CARD'),
 ];
 
-// Routes
+const validateUpdateStatus = [
+  body('status')
+    .isIn(['pending', 'processing', 'shipped', 'delivered', 'cancelled'])
+    .withMessage('Invalid order status'),
+];
+
+
+// Checkout endpoint (alternative - accepts userId in body)
 router.post('/checkout', validateCheckout, OrderController.checkout);
-router.get('/paid', validatePaidOrdersQuery, OrderController.getPaidOrders);
-router.get('/:orderId', validateOrderId, OrderController.getOrder);
-router.patch('/:orderId/paid', validateOrderId, validateMarkPaid, OrderController.markPaid);
-router.patch('/:orderId/status', validateOrderId, validateStatusUpdate, OrderController.updateOrderStatus);
+
+// Create order for user (primary endpoint - userId is integer param)
+router.post('/:userId', validateUserId, validateCreateOrder, OrderController.createOrder);
+
+// Get all orders for user
+router.get('/user/:userId', validateUserId, OrderController.getUserOrders);
+
+// Get user order statistics
+router.get('/user/:userId/stats', validateUserId, OrderController.getUserOrderStats);
+
+// Get specific order by ID (numeric)
+router.get('/:orderId', validateOrderId, OrderController.getOrderById);
+
+// Update order status
+router.patch('/:orderId/status', validateOrderId, validateUpdateStatus, OrderController.updateOrderStatus);
+
+// Cancel order
+router.delete('/:orderId', validateOrderId, OrderController.cancelOrder);
 
 export default router;

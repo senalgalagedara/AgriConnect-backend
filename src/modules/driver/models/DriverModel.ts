@@ -27,7 +27,7 @@ export class DriverModel {
       return result.rows as Driver[];
     } catch (error) {
       console.error('Error in DriverModel.findAll:', error);
-      throw new Error('Failed to retrieve drivers');
+      throw new Error('Failed to retrieve drivers from table');
     }
   }
 

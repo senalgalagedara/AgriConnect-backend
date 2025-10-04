@@ -2,6 +2,16 @@ import database from '../../../config/database';
 import { Feedback, CreateFeedbackRequest, UpdateFeedbackRequest, FeedbackFilter, PaginationOptions } from '../../..';
 
 export class FeedbackModel {
+  private static readonly INSERT_SQL = `
+      INSERT INTO feedback (
+        user_id, user_type, feedback_type, subject, message,
+        rating, priority, attachments, meta
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING *`;
+
+  static getInsertTemplate(): string {
+    return this.INSERT_SQL.replace(/\s+/g, ' ').trim();
+  }
   
   /**
    * Transform database record to match frontend expectations
@@ -10,6 +20,7 @@ export class FeedbackModel {
     return {
       ...dbRecord,
       comment: dbRecord.message, // Map 'message' to 'comment' for frontend
+      feedback_type: dbRecord.feedback_type,
       meta: dbRecord.meta ? (typeof dbRecord.meta === 'string' ? JSON.parse(dbRecord.meta) : dbRecord.meta) : undefined
     };
   }
@@ -43,9 +54,9 @@ export class FeedbackModel {
       paramIndex++;
     }
 
-    if (filters?.category) {
-      query += ` AND f.category = $${paramIndex}`;
-      params.push(filters.category);
+    if (filters?.feedback_type) {
+      query += ` AND f.feedback_type = $${paramIndex}`;
+      params.push(filters.feedback_type);
       paramIndex++;
     }
 
@@ -98,9 +109,9 @@ export class FeedbackModel {
       countParamIndex++;
     }
 
-    if (filters?.category) {
-      countQuery += ` AND f.category = $${countParamIndex}`;
-      countParams.push(filters.category);
+    if (filters?.feedback_type) {
+      countQuery += ` AND f.feedback_type = $${countParamIndex}`;
+      countParams.push(filters.feedback_type);
       countParamIndex++;
     }
 
@@ -140,10 +151,7 @@ export class FeedbackModel {
       countParamIndex++;
     }
     
-    const countResult = await database.query(countQuery, countParams);
-    console.log('Count result:', countResult);
-    console.log('Count result rows:', countResult.rows);
-    console.log('First row:', countResult.rows[0]);
+  const countResult = await database.query(countQuery, countParams);
     const total = parseInt(countResult.rows[0]?.total || '0');
 
     // Apply sorting
@@ -193,27 +201,22 @@ export class FeedbackModel {
    * Create new feedback
    */
   static async create(feedbackData: CreateFeedbackRequest): Promise<Feedback> {
-    const query = `
-      INSERT INTO feedback (
-        user_id, user_type, category, subject, message, 
-        rating, priority, attachments, meta
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      RETURNING *
-    `;
+    const query = this.INSERT_SQL;
     
     const values = [
       feedbackData.user_id || null,
       feedbackData.user_type || 'anonymous',
-      feedbackData.category || 'general',
-      feedbackData.subject || 'Feedback', // Default subject if not provided
-      feedbackData.comment, // Map frontend 'comment' to backend 'message'
-      feedbackData.rating, // Required field
+      feedbackData.feedback_type || 'transactional',
+      feedbackData.subject || 'Feedback',
+      feedbackData.comment,
+      feedbackData.rating,
       feedbackData.priority || 'medium',
       feedbackData.attachments ? JSON.stringify(feedbackData.attachments) : null,
       feedbackData.meta ? JSON.stringify(feedbackData.meta) : null
     ];
 
     const result = await database.query(query, values);
+  console.log('[FeedbackModel.create] Executed INSERT without category column', { query: query.replace(/\s+/g,' ').trim(), values });
     
     // Transform the result to match frontend expectations
     const feedback = result.rows[0];
@@ -274,7 +277,8 @@ export class FeedbackModel {
     values.push(id);
 
     const result = await database.query(query, values);
-    return result.rows.length > 0 ? result.rows[0] : null;
+    if (!result.rows.length) return null;
+    return this.transformFeedback(result.rows[0]);
   }
 
   /**

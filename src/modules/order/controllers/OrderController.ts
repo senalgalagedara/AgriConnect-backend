@@ -1,14 +1,57 @@
 import { Request, Response } from 'express';
 import { OrderService } from '../services/OrderService';
-import { CheckoutRequest, OrderWithItems, Order } from '../../../types/entities';
 import { ApiResponse } from '../../../types/database';
+import { Order } from '../../../types/entities';
 
 /**
- * Checkout - Create order from cart
+ * Create a new order (checkout)
+ */
+export const createOrder = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = parseInt(req.params.userId, 10); 
+    const { contact, shipping, paymentMethod } = req.body;
+
+    if (!userId || userId <= 0) {
+      res.status(400).json({
+        success: false,
+        message: 'Valid user ID is required'
+      } as ApiResponse);
+      return;
+    }
+
+    if (!contact || !shipping) {
+      res.status(400).json({
+        success: false,
+        message: 'Contact information and shipping information are required'
+      } as ApiResponse);
+      return;
+    }
+
+    const method = paymentMethod || 'COD';
+
+    const order = await OrderService.createOrder(userId, contact, shipping, method);
+
+    res.status(201).json({
+      success: true,
+      message: 'Order created successfully',
+      data: order
+    } as ApiResponse<Order>);
+  } catch (error) {
+    console.error('Error in OrderController.createOrder:', error);
+    res.status(500).json({
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to create order',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    } as ApiResponse);
+  }
+};
+
+/**
+ * Checkout - Create order from cart (alternative endpoint)
  */
 export const checkout = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { userId, contact, shipping }: CheckoutRequest = req.body;
+    const { userId, contact, shipping, paymentMethod } = req.body;
 
     if (!userId || !contact || !shipping) {
       res.status(400).json({
@@ -18,13 +61,15 @@ export const checkout = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const orderWithItems = await OrderService.checkout({ userId, contact, shipping });
+    const method = paymentMethod || 'COD';
+
+    const order = await OrderService.createOrder(userId, contact, shipping, method);
 
     res.status(201).json({
       success: true,
       message: 'Order created successfully',
-      data: orderWithItems
-    } as ApiResponse<OrderWithItems>);
+      data: order
+    } as ApiResponse<Order>);
   } catch (error) {
     console.error('Error in OrderController.checkout:', error);
     res.status(500).json({
@@ -38,9 +83,10 @@ export const checkout = async (req: Request, res: Response): Promise<void> => {
 /**
  * Get order by ID
  */
-export const getOrder = async (req: Request, res: Response): Promise<void> => {
+export const getOrderById = async (req: Request, res: Response): Promise<void> => {
   try {
-    const orderId = parseInt(req.params.orderId);
+    const orderId = parseInt(req.params.orderId, 10);
+    const userId = req.query.userId ? parseInt(req.query.userId as string, 10) : undefined;
 
     if (!orderId || orderId <= 0) {
       res.status(400).json({
@@ -50,9 +96,9 @@ export const getOrder = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const orderWithItems = await OrderService.getOrderById(orderId);
+    const order = await OrderService.getOrderById(orderId, userId);
 
-    if (!orderWithItems) {
+    if (!order) {
       res.status(404).json({
         success: false,
         message: 'Order not found'
@@ -63,10 +109,10 @@ export const getOrder = async (req: Request, res: Response): Promise<void> => {
     res.status(200).json({
       success: true,
       message: 'Order retrieved successfully',
-      data: orderWithItems
-    } as ApiResponse<OrderWithItems>);
+      data: order
+    } as ApiResponse);
   } catch (error) {
-    console.error('Error in OrderController.getOrder:', error);
+    console.error('Error in OrderController.getOrderById:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to retrieve order',
@@ -76,86 +122,70 @@ export const getOrder = async (req: Request, res: Response): Promise<void> => {
 };
 
 /**
- * Get paid orders with filtering and pagination
+ * Get all orders for a user
  */
-export const getPaidOrders = async (req: Request, res: Response): Promise<void> => {
+export const getUserOrders = async (req: Request, res: Response): Promise<void> => {
   try {
-    // Extract query parameters
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 50;
-    const orderNo = req.query.order_no as string;
-    const customerEmail = req.query.customer_email as string;
-    const createdFrom = req.query.created_from ? new Date(req.query.created_from as string) : undefined;
-    const createdTo = req.query.created_to ? new Date(req.query.created_to as string) : undefined;
+    const userId = parseInt(req.params.userId, 10);
 
-    const filters = {
-      order_no: orderNo,
-      customer_email: customerEmail,
-      created_from: createdFrom,
-      created_to: createdTo
-    };
+    if (!userId || userId <= 0) {
+      res.status(400).json({
+        success: false,
+        message: 'Valid user ID is required'
+      } as ApiResponse);
+      return;
+    }
 
-    const pagination = { page, limit };
-
-    const { orders, total } = await OrderService.getPaidOrders(filters, pagination);
+    const orders = await OrderService.getUserOrders(userId);
 
     res.status(200).json({
       success: true,
-      message: 'Paid orders retrieved successfully',
+      message: 'Orders retrieved successfully',
       data: orders,
       pagination: {
-        currentPage: page,
-        totalPages: Math.ceil(total / limit),
-        totalItems: total,
-        itemsPerPage: limit
+        currentPage: 1,
+        totalPages: 1,
+        totalItems: orders.length,
+        itemsPerPage: orders.length
       }
     } as ApiResponse<Order[]>);
   } catch (error) {
-    console.error('Error in OrderController.getPaidOrders:', error);
+    console.error('Error in OrderController.getUserOrders:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to retrieve paid orders',
+      message: 'Failed to retrieve orders',
       error: error instanceof Error ? error.message : 'Unknown error'
     } as ApiResponse);
   }
 };
 
 /**
- * Mark order as paid
+ * Get user order statistics
  */
-export const markPaid = async (req: Request, res: Response): Promise<void> => {
+export const getUserOrderStats = async (req: Request, res: Response): Promise<void> => {
   try {
-    const orderId = parseInt(req.params.orderId);
-    const { method, cardLast4 } = req.body;
+    const userId = parseInt(req.params.userId, 10);
 
-    if (!orderId || orderId <= 0) {
+    if (!userId || userId <= 0) {
       res.status(400).json({
         success: false,
-        message: 'Valid order ID is required'
+        message: 'Valid user ID is required'
       } as ApiResponse);
       return;
     }
 
-    if (!method) {
-      res.status(400).json({
-        success: false,
-        message: 'Payment method is required'
-      } as ApiResponse);
-      return;
-    }
-
-    const payment = await OrderService.markOrderPaid(orderId, method, cardLast4);
+    const stats = await OrderService.getUserOrderStats(userId);
 
     res.status(200).json({
       success: true,
-      message: 'Order marked as paid successfully',
-      data: payment
+      message: 'Order statistics retrieved successfully',
+      data: stats
     } as ApiResponse);
   } catch (error) {
-    console.error('Error in OrderController.markPaid:', error);
+    console.error('Error in OrderController.getUserOrderStats:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to mark order as paid',
+      message: 'Failed to retrieve order statistics',
       error: error instanceof Error ? error.message : 'Unknown error'
     } as ApiResponse);
   }
@@ -166,7 +196,7 @@ export const markPaid = async (req: Request, res: Response): Promise<void> => {
  */
 export const updateOrderStatus = async (req: Request, res: Response): Promise<void> => {
   try {
-    const orderId = parseInt(req.params.orderId);
+    const orderId = parseInt(req.params.orderId, 10);
     const { status } = req.body;
 
     if (!orderId || orderId <= 0) {
@@ -208,4 +238,54 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
       error: error instanceof Error ? error.message : 'Unknown error'
     } as ApiResponse);
   }
+};
+
+/**
+ * Cancel order
+ */
+export const cancelOrder = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const orderId = parseInt(req.params.orderId, 10);
+
+    if (!orderId || orderId <= 0) {
+      res.status(400).json({
+        success: false,
+        message: 'Valid order ID is required'
+      } as ApiResponse);
+      return;
+    }
+
+    const cancelledOrder = await OrderService.cancelOrder(orderId);
+
+    if (!cancelledOrder) {
+      res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      } as ApiResponse);
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Order cancelled successfully',
+      data: cancelledOrder
+    } as ApiResponse<Order>);
+  } catch (error) {
+    console.error('Error in OrderController.cancelOrder:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to cancel order',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    } as ApiResponse);
+  }
+};
+
+export default {
+  createOrder,
+  checkout,
+  getOrderById,
+  getUserOrders,
+  getUserOrderStats,
+  updateOrderStatus,
+  cancelOrder
 };

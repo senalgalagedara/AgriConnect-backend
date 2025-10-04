@@ -1,11 +1,36 @@
+import { CartItem } from '../../../types/entities';
+
+export const getCartItems = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = parseInt(req.params.userId);
+    if (!userId || userId <= 0) {
+      res.status(400).json({
+        success: false,
+        message: 'Valid user ID is required'
+      } as ApiResponse);
+      return;
+    }
+    const cartData = await CartService.getCart(userId);
+    res.status(200).json({
+      success: true,
+      message: 'Cart items retrieved successfully',
+      data: cartData.items
+    } as ApiResponse<CartItem[]>);
+  } catch (error) {
+    console.error('Error in CartController.getCartItems:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve cart items',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    } as ApiResponse);
+  }
+};
 import { Request, Response } from 'express';
 import { CartService } from '../services/CartService';
 import { AddToCartRequest, UpdateCartItemRequest, CartWithItems } from '../../../types/entities';
 import { ApiResponse } from '../../../types/database';
 
-/**
- * Get user's cart
- */
+
 export const getCart = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = parseInt(req.params.userId);
@@ -20,11 +45,7 @@ export const getCart = async (req: Request, res: Response): Promise<void> => {
 
     const cartData = await CartService.getCart(userId);
 
-    res.status(200).json({
-      success: true,
-      message: 'Cart retrieved successfully',
-      data: cartData
-    } as ApiResponse<CartWithItems>);
+    res.status(200).json(cartData);
   } catch (error) {
     console.error('Error in CartController.getCart:', error);
     res.status(500).json({
@@ -79,10 +100,13 @@ export const addItem = async (req: Request, res: Response): Promise<void> => {
 /**
  * Update item quantity in cart
  */
+/**
+ * Update item quantity in cart
+ */
 export const updateQty = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = parseInt(req.params.userId);
-    const itemId = parseInt(req.params.itemId);
+    const userId = parseInt(req.params.userId, 10);
+    const itemId = parseInt(req.params.itemId, 10);  // FIXED: parse to number
     const { qty }: UpdateCartItemRequest = req.body;
 
     if (!userId || userId <= 0) {
@@ -111,11 +135,7 @@ export const updateQty = async (req: Request, res: Response): Promise<void> => {
 
     const cartData = await CartService.updateItemQuantity(userId, itemId, qty);
 
-    res.status(200).json({
-      success: true,
-      message: 'Item quantity updated successfully',
-      data: cartData
-    } as ApiResponse<CartWithItems>);
+    res.status(200).json(cartData);
   } catch (error) {
     console.error('Error in CartController.updateQty:', error);
     res.status(500).json({
@@ -131,8 +151,8 @@ export const updateQty = async (req: Request, res: Response): Promise<void> => {
  */
 export const removeItem = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = parseInt(req.params.userId);
-    const itemId = parseInt(req.params.itemId);
+    const userId = parseInt(req.params.userId, 10);
+    const itemId = parseInt(req.params.itemId, 10); // FIXED: parse to number
 
     if (!userId || userId <= 0) {
       res.status(400).json({
@@ -152,11 +172,7 @@ export const removeItem = async (req: Request, res: Response): Promise<void> => 
 
     const cartData = await CartService.removeItem(userId, itemId);
 
-    res.status(200).json({
-      success: true,
-      message: 'Item removed from cart successfully',
-      data: cartData
-    } as ApiResponse<CartWithItems>);
+    res.status(200).json(cartData);
   } catch (error) {
     console.error('Error in CartController.removeItem:', error);
     res.status(500).json({

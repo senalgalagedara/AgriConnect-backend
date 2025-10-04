@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { validationResult } from 'express-validator';
 import { FeedbackService } from '../services/FeedbackService';
 import { ApiResponse, CreateFeedbackRequest, UpdateFeedbackRequest, FeedbackFilter, PaginationOptions } from '../../..';
 
@@ -25,7 +26,7 @@ export class FeedbackController {
       // Extract filter parameters
       const filters: FeedbackFilter = {};
       if (req.query.user_type) filters.user_type = req.query.user_type as string;
-      if (req.query.category) filters.category = req.query.category as string;
+  if (req.query.feedback_type) filters.feedback_type = req.query.feedback_type as string;
       if (req.query.status) filters.status = req.query.status as string;
       if (req.query.priority) filters.priority = req.query.priority as string;
       if (req.query.created_from) filters.created_from = new Date(req.query.created_from as string);
@@ -112,6 +113,17 @@ export class FeedbackController {
    */
   static async createFeedback(req: Request, res: Response): Promise<void> {
     try {
+      // Return validation errors (from express-validator middleware) if any
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
+        return;
+      }
+
+      // Support camelCase input (feedbackType) by mapping to snake_case used downstream
+      if ((req.body as any).feedbackType && !(req.body as any).feedback_type) {
+        (req.body as any).feedback_type = (req.body as any).feedbackType;
+      }
       const feedbackData: CreateFeedbackRequest = req.body;
 
       const feedback = await FeedbackService.createFeedback(feedbackData);
@@ -146,6 +158,12 @@ export class FeedbackController {
           message: 'Invalid feedback ID'
         };
         res.status(400).json(response);
+        return;
+      }
+
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
         return;
       }
 

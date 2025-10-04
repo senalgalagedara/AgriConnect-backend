@@ -44,7 +44,6 @@ export interface Product {
   status: 'active' | 'inactive' | 'discontinued';
   created_at: Date;
   updated_at: Date;
-  // Virtual fields from joins
   category_name?: string;
   province_name?: string;
 }
@@ -124,6 +123,8 @@ export interface UpdateSupplierRequest extends Partial<CreateSupplierRequest> {
   status?: 'active' | 'inactive' | 'pending' | 'completed';
 }
 
+export type FeedbackType = 'user_experience' | 'performance' | 'product_service' | 'transactional';
+
 export interface Feedback {
   id: number;
   user_id?: number;
@@ -132,11 +133,11 @@ export interface Feedback {
   meta?: Record<string, any>; // Frontend meta data (orderId, userId, etc.)
   // Keep backend-specific fields
   user_type?: 'farmer' | 'supplier' | 'driver' | 'admin' | 'anonymous';
-  category?: 'general' | 'technical' | 'service' | 'suggestion' | 'complaint';
   subject?: string; // Made optional since frontend focuses on rating + comment
   status: 'pending' | 'in_progress' | 'resolved' | 'closed';
   priority?: 'low' | 'medium' | 'high' | 'urgent';
   attachments?: string[]; // URLs to uploaded files
+  feedback_type?: FeedbackType; // New classification axis
   created_at: Date;
   updated_at: Date;
   resolved_at?: Date;
@@ -151,16 +152,17 @@ export interface CreateFeedbackRequest {
   meta?: Record<string, any>; // Frontend meta data
   // Optional backend fields with defaults
   user_type?: 'farmer' | 'supplier' | 'driver' | 'admin' | 'anonymous';
-  category?: 'general' | 'technical' | 'service' | 'suggestion' | 'complaint';
   subject?: string;
   priority?: 'low' | 'medium' | 'high' | 'urgent';
   attachments?: string[];
+  feedback_type?: FeedbackType;
 }
 
 // Frontend-compatible interface for client responses
 export interface FeedbackData {
   rating: number;
   comment: string;
+  feedbackType?: FeedbackType;
   meta?: Record<string, any>;
 }
 
@@ -169,7 +171,7 @@ export interface FeedbackResponse extends FeedbackData {
   id: number;
   user_id?: number;
   user_type?: string;
-  category?: string;
+  feedback_type?: FeedbackType;
   subject?: string;
   status: string;
   priority?: string;
@@ -186,13 +188,13 @@ export interface UpdateFeedbackRequest {
 
 export interface FeedbackFilter {
   user_type?: string;
-  category?: string;
   status?: string;
   priority?: string;
   created_from?: Date;
   created_to?: Date;
   rating_min?: number;
   rating_max?: number;
+  feedback_type?: FeedbackType | string;
 }
 
 // Cart related interfaces
@@ -200,8 +202,6 @@ export interface Cart {
   id: number;
   user_id: number;
   status: 'active' | 'completed' | 'abandoned';
-  created_at: Date;
-  updated_at: Date;
 }
 
 export interface CartItem {
@@ -212,8 +212,7 @@ export interface CartItem {
   product_name?: string;
   name?: string; // For backward compatibility
   price?: number;
-  created_at?: Date;
-  updated_at?: Date;
+  added_at?: Date;
 }
 
 export interface CartTotals {
@@ -241,7 +240,7 @@ export interface UpdateCartItemRequest {
 // Order related interfaces
 export interface Order {
   id: number;
-  order_no?: string | number;
+  order_no?: number;
   user_id: number;
   subtotal: number;
   tax: number;
@@ -348,7 +347,7 @@ export interface PaymentResponse {
 }
 
 export interface InvoiceInfo {
-  orderId: string | number;
+  orderId:number;
   total: number;
   customerName: string;
   email: string;

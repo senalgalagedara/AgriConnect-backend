@@ -4,6 +4,46 @@ import { FeedbackController } from '../controllers/FeedbackController';
 
 const router = Router();
 
+// Normalization middleware: map legacy / frontend variant fields before validation
+router.use((req, _res, next) => {
+  if (req.method === 'POST' && req.path === '/') {
+    const body: any = req.body || {};
+    // message -> comment
+    if (!body.comment && typeof body.message === 'string') {
+      body.comment = body.message;
+    }
+    // feedbackType -> feedback_type
+    if (!body.feedback_type && typeof body.feedbackType === 'string') {
+      body.feedback_type = body.feedbackType;
+    }
+    // Accept label variants (e.g. "User experience") and normalize to snake_case
+    if (typeof body.feedback_type === 'string') {
+      const v = body.feedback_type.trim().toLowerCase();
+      const map: Record<string,string> = {
+        'user experience': 'user_experience',
+        'user_experience': 'user_experience',
+        'performance': 'performance',
+        'product / service': 'product_service',
+        'product-service': 'product_service',
+        'product_service': 'product_service',
+        'service': 'product_service',
+        'feature_request': 'product_service',
+        'feature request': 'product_service',
+        'bug_report': 'performance',
+        'bug report': 'performance',
+        'transactional': 'transactional'
+      };
+      if (map[v]) body.feedback_type = map[v];
+    }
+    // Coerce rating to int if provided as string
+    if (body.rating !== undefined && typeof body.rating === 'string' && /^(\d+)$/.test(body.rating)) {
+      body.rating = parseInt(body.rating, 10);
+    }
+    req.body = body;
+  }
+  next();
+});
+
 // Validation middleware for creating feedback
 const validateCreateFeedback = [
   // Rating is required from frontend
@@ -11,13 +51,12 @@ const validateCreateFeedback = [
     .isInt({ min: 1, max: 5 })
     .withMessage('Rating must be an integer between 1 and 5'),
   
-  // Comment is required from frontend (maps to message in backend)
+  // Comment now optional; if present, validate length
   body('comment')
+    .optional({ checkFalsy: true })
     .trim()
-    .notEmpty()
-    .withMessage('Comment is required')
-    .isLength({ min: 1, max: 5000 })
-    .withMessage('Comment must be between 1 and 5000 characters'),
+    .isLength({ max: 5000 })
+    .withMessage('Comment must be under 5000 characters'),
   
   // Meta data is optional
   body('meta')
@@ -30,11 +69,6 @@ const validateCreateFeedback = [
     .optional()
     .isIn(['farmer', 'supplier', 'driver', 'admin', 'anonymous'])
     .withMessage('Invalid user type'),
-  
-  body('category')
-    .optional()
-    .isIn(['general', 'technical', 'service', 'suggestion', 'complaint'])
-    .withMessage('Invalid category'),
   
   body('subject')
     .optional()
@@ -56,6 +90,11 @@ const validateCreateFeedback = [
     .optional()
     .isArray()
     .withMessage('Attachments must be an array')
+  ,
+  body('feedback_type')
+    .optional()
+    .isIn(['user_experience','performance','product_service','transactional'])
+    .withMessage('Invalid feedback_type')
 ];
 
 // Validation middleware for updating feedback

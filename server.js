@@ -21,10 +21,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true
-}));
+app.use(cors());  // Allow all origins for debugging
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -42,6 +39,59 @@ app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/admin', adminRoutes);
+
+// Dashboard stats endpoint (quick add for the JS entrypoint)
+app.get('/api/dashboard/stats', async (req, res) => {
+  try {
+    const query = `
+      SELECT
+        (COALESCE((SELECT COUNT(*)::int FROM farmers),0) + COALESCE((SELECT COUNT(*)::int FROM drivers),0)) as total_users,
+        COALESCE((SELECT COUNT(*)::int FROM orders),0) as total_orders,
+        COALESCE((SELECT SUM(amount)::numeric FROM payments WHERE status = 'succeeded'), (SELECT SUM(total) FROM orders WHERE status = 'paid'), 0) as total_revenue,
+        COALESCE((SELECT COUNT(*)::int FROM orders WHERE status IN ('pending','processing','shipped')),0) as pending_deliveries,
+        COALESCE((SELECT COUNT(*)::int FROM feedback),0) as total_feedback,
+        COALESCE((SELECT COUNT(*)::int FROM payments),0) as total_payments
+    `;
+
+    let result;
+    try {
+      result = await db.query(query);
+    } catch (err) {
+      // fallback for missing optional tables (payments, feedback)
+      if (err && err.message && /relation .* does not exist/.test(err.message)) {
+        const fallback = `
+          SELECT
+            COALESCE((SELECT COUNT(*)::int FROM farmers),0) + COALESCE((SELECT COUNT(*)::int FROM drivers),0) as total_users,
+            COALESCE((SELECT COUNT(*)::int FROM orders),0) as total_orders,
+            COALESCE((SELECT SUM(total) FROM orders WHERE status = 'paid'),0) as total_revenue,
+            COALESCE((SELECT COUNT(*)::int FROM orders WHERE status IN ('pending','processing','shipped')),0) as pending_deliveries,
+            0 as total_feedback,
+            0 as total_payments
+        `;
+        result = await db.query(fallback);
+      } else {
+        throw err;
+      }
+    }
+
+    const row = result.rows[0] || {};
+    res.json({
+      success: true,
+      data: {
+        totalUsers: Number(row.total_users) || 0,
+        totalOrders: Number(row.total_orders) || 0,
+        totalRevenue: Number(row.total_revenue) || 0,
+        pendingDeliveries: Number(row.pending_deliveries) || 0,
+        totalFeedback: Number(row.total_feedback) || 0,
+        totalPayments: Number(row.total_payments) || 0,
+      },
+      message: 'Dashboard stats retrieved'
+    });
+  } catch (error) {
+    console.error('Error in /api/dashboard/stats:', error);
+    res.status(500).json({ success: false, message: 'Failed to retrieve dashboard stats', error: error && error.message ? error.message : String(error) });
+  }
+});
 
 
 // Health check route

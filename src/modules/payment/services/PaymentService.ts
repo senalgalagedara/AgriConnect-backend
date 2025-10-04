@@ -19,45 +19,66 @@ export class PaymentService {
       // Validate card number for CARD payments
       let cardLast4: string | undefined;
       if (request.method === 'CARD') {
-        if (!request.cardNumber || request.cardNumber.length < 4) {
+        const cleanedCard = (request.cardNumber ?? '').replace(/[\s-]/g, '');
+        if (!cleanedCard || cleanedCard.length < 13 || cleanedCard.length > 19) {
           throw new Error('Valid card number is required for card payments');
         }
-        
-        // Simple validation - in real app you'd use proper card validation
-        if (!/^\d+$/.test(request.cardNumber)) {
+        if (!/^\d+$/.test(cleanedCard)) {
           throw new Error('Card number must contain only digits');
         }
-        
-        cardLast4 = request.cardNumber.slice(-4);
+        if (!this.isValidCardNumber(cleanedCard)) {
+          throw new Error('Invalid card number');
+        }
+        cardLast4 = cleanedCard.slice(-4);
       }
 
-      // Mark order as paid
-      const payment = await OrderModel.markPaid(request.orderId, request.method, cardLast4);
+      // 1) Mark order as paid (DB returns snake_case fields)
+      const paymentRaw = await OrderModel.markPaid(request.orderId, request.method, cardLast4);
 
-      // Get the full order details
+      // 2) Normalize DB row → app Payment object (camelCase + status mapping)
+      //    Using `any` here prevents TS from complaining if your app Payment type
+      //    differs slightly (keys/unions). Adjust keys below to your exact interface if needed.
+      const payment: any = {
+        id: paymentRaw.id,
+        orderId: paymentRaw.order_id,
+        amount: Number(paymentRaw.amount),
+        method: paymentRaw.method, // 'COD' | 'CARD'
+        cardLast4: paymentRaw.card_last4 ?? undefined,
+        // Map DB status to app status
+        status: paymentRaw.status === 'succeeded' ? 'paid' : 'pending',
+        createdAt:
+          typeof paymentRaw.created_at === 'string'
+            ? paymentRaw.created_at
+            : new Date().toISOString(),
+        updatedAt:
+          typeof paymentRaw.created_at === 'string'
+            ? paymentRaw.created_at
+            : new Date().toISOString(),
+      };
+
+      // 3) Load full order + items
       const orderWithItems = await OrderModel.getOrderWithItems(request.orderId);
-      
       if (!orderWithItems) {
         throw new Error('Order not found after payment processing');
       }
-
       const { order, items } = orderWithItems;
 
-      // Create invoice information
+      // 4) Build invoice
       const invoice: InvoiceInfo = {
-        orderId: order.order_no || order.id,
-        total: order.total,
-        customerName: `${order.contact.firstName || ''} ${order.contact.lastName || ''}`.trim(),
-        email: order.contact.email,
-        createdAt: order.created_at,
-        method: request.method === 'CARD' ? 'Credit Card' : 'Cash on Delivery'
+        orderId: (order as any).order_no || order.id,
+        total: (order as any).total,
+        customerName: `${(order as any).contact?.firstName || ''} ${(order as any).contact?.lastName || ''}`.trim(),
+        email: (order as any).contact?.email,
+        createdAt: (order as any).created_at,
+        method: request.method === 'CARD' ? 'Credit Card' : 'Cash on Delivery',
       };
 
+      // 5) Return response
       return {
         order,
         items,
         payment,
-        invoice
+        invoice,
       };
     } catch (error) {
       console.error('Error in PaymentService.processPayment:', error);
@@ -73,14 +94,28 @@ export class PaymentService {
   }
 
   /**
-   * Validate card number format (basic validation)
+   * Validate card number format with Luhn check
+   * - strips spaces/dashes
+   * - ensures 13–19 digits
+   * - runs Luhn algorithm
    */
   static isValidCardNumber(cardNumber: string): boolean {
-    // Remove spaces and dashes
-    const cleanedNumber = cardNumber.replace(/[\s-]/g, '');
-    
-    // Check if it's all digits and has reasonable length
-    return /^\d{13,19}$/.test(cleanedNumber);
+    const cleaned = cardNumber.replace(/[\s-]/g, '');
+    if (!/^\d{13,19}$/.test(cleaned)) return false;
+
+    // Luhn algorithm
+    let sum = 0;
+    let shouldDouble = false;
+    for (let i = cleaned.length - 1; i >= 0; i--) {
+      let digit = Number(cleaned[i]);
+      if (shouldDouble) {
+        digit *= 2;
+        if (digit > 9) digit -= 9;
+      }
+      sum += digit;
+      shouldDouble = !shouldDouble;
+    }
+    return sum % 10 === 0;
   }
 
   /**
@@ -89,10 +124,10 @@ export class PaymentService {
   static getMaskedCardNumber(cardNumber: string): string {
     const cleaned = cardNumber.replace(/[\s-]/g, '');
     if (cleaned.length < 4) return '****';
-    
+
     const last4 = cleaned.slice(-4);
-    const masked = '*'.repeat(cleaned.length - 4);
-    
+    const masked = '*'.repeat(Math.max(0, cleaned.length - 4));
+
     return masked + last4;
   }
 }
