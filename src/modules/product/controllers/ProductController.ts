@@ -5,12 +5,8 @@ import { ApiResponse, CreateProductRequest, UpdateProductRequest, PaginationOpti
 
 export class ProductController {
 
-  /**
-   * Get all products with filtering and pagination
-   */
   static async getAllProducts(req: Request, res: Response): Promise<void> {
     try {
-      // Extract pagination parameters
       const page = req.query.page ? parseInt(req.query.page as string) : 1;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
       const sortBy = req.query.sortBy as string || 'created_at';
@@ -23,7 +19,6 @@ export class ProductController {
         sortOrder
       };
 
-      // Extract filter parameters
       const filters: {
         status?: string;
         category?: string;
@@ -46,7 +41,6 @@ export class ProductController {
         message: 'Products retrieved successfully',
       };
 
-      // Add pagination info to response
       if (result.pages) {
         (response as any).pagination = {
           page: pagination.page,
@@ -68,9 +62,6 @@ export class ProductController {
     }
   }
 
-  /**
-   * Get products by province
-   */
   static async getProductsByProvince(req: Request, res: Response): Promise<void> {
     try {
       const provinceId = parseInt(req.params.provinceId);
@@ -103,9 +94,6 @@ export class ProductController {
     }
   }
 
-  /**
-   * Get product by ID
-   */
   static async getProductById(req: Request, res: Response): Promise<void> {
     try {
       const id = parseInt(req.params.id);
@@ -147,12 +135,8 @@ export class ProductController {
     }
   }
 
-  /**
-   * Create new product
-   */
   static async createProduct(req: Request, res: Response): Promise<void> {
     try {
-      // Check for validation errors
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
         const response: ApiResponse = {
@@ -187,9 +171,6 @@ export class ProductController {
     }
   }
 
-  /**
-   * Update product
-   */
   static async updateProduct(req: Request, res: Response): Promise<void> {
     try {
       const id = parseInt(req.params.id);
@@ -203,7 +184,6 @@ export class ProductController {
         return;
       }
 
-      // Check for validation errors
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
         const response: ApiResponse = {
@@ -247,9 +227,6 @@ export class ProductController {
     }
   }
 
-  /**
-   * Update product stock
-   */
   static async updateProductStock(req: Request, res: Response): Promise<void> {
     try {
       const id = parseInt(req.params.id);
@@ -301,9 +278,6 @@ export class ProductController {
     }
   }
 
-  /**
-   * Delete product
-   */
   static async deleteProduct(req: Request, res: Response): Promise<void> {
     try {
       const id = parseInt(req.params.id);
@@ -344,9 +318,6 @@ export class ProductController {
     }
   }
 
-  /**
-   * Get products with low stock
-   */
   static async getLowStockProducts(req: Request, res: Response): Promise<void> {
     try {
       const products = await ProductService.getLowStockProducts();
@@ -368,9 +339,7 @@ export class ProductController {
     }
   }
 
-  /**
-   * Check product availability
-   */
+
   static async checkProductAvailability(req: Request, res: Response): Promise<void> {
     try {
       const id = parseInt(req.params.id);

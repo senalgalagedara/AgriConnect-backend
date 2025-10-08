@@ -5,12 +5,8 @@ import { ApiResponse, CreateSupplierRequest, UpdateSupplierRequest, PaginationOp
 
 export class SupplierController {
 
-  /**
-   * Get all supplier records with filtering and pagination
-   */
   static async getAllSuppliers(req: Request, res: Response): Promise<void> {
     try {
-      // Extract pagination parameters
       const page = req.query.page ? parseInt(req.query.page as string) : 1;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
       const sortBy = req.query.sortBy as string || 'created_at';
@@ -23,7 +19,6 @@ export class SupplierController {
         sortOrder
       };
 
-      // Extract filter parameters
       const filters: {
         farmer_id?: number;
         product_id?: number;
@@ -73,9 +68,6 @@ export class SupplierController {
     }
   }
 
-  /**
-   * Get supplier by ID
-   */
   static async getSupplierById(req: Request, res: Response): Promise<void> {
     try {
       const id = parseInt(req.params.id);
@@ -117,9 +109,6 @@ export class SupplierController {
     }
   }
 
-  /**
-   * Get supplier records by farmer
-   */
   static async getSuppliersByFarmer(req: Request, res: Response): Promise<void> {
     try {
       const farmerId = parseInt(req.params.farmerId);
@@ -152,9 +141,6 @@ export class SupplierController {
     }
   }
 
-  /**
-   * Get supplier records by product
-   */
   static async getSuppliersByProduct(req: Request, res: Response): Promise<void> {
     try {
       const productId = parseInt(req.params.productId);
@@ -187,12 +173,8 @@ export class SupplierController {
     }
   }
 
-  /**
-   * Create new supplier record
-   */
   static async createSupplier(req: Request, res: Response): Promise<void> {
     try {
-      // Check for validation errors
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
         const response: ApiResponse = {
@@ -236,12 +218,8 @@ export class SupplierController {
     }
   }
 
-  /**
-   * Update supplier record
-   */
   static async updateSupplier(req: Request, res: Response): Promise<void> {
     try {
-      // Check for validation errors
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
         const response: ApiResponse = {
@@ -305,9 +283,6 @@ export class SupplierController {
     }
   }
 
-  /**
-   * Delete supplier record
-   */
   static async deleteSupplier(req: Request, res: Response): Promise<void> {
     try {
       const id = parseInt(req.params.id);

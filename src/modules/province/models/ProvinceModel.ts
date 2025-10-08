@@ -2,10 +2,7 @@ import database from '../../../config/database';
 import { Province, CreateProvinceRequest, UpdateProvinceRequest, ProvinceStatistics } from '../../../types';
 
 export class ProvinceModel {
-  
-  /**
-   * Get all provinces with aggregated data
-   */
+ 
   static async findAll(): Promise<Province[]> {
     try {
       const result = await database.query(`
@@ -25,9 +22,6 @@ export class ProvinceModel {
     }
   }
 
-  /**
-   * Get province by ID
-   */
   static async findById(id: number): Promise<Province | null> {
     try {
       const result = await database.query(`
@@ -52,9 +46,6 @@ export class ProvinceModel {
     }
   }
 
-  /**
-   * Create new province
-   */
   static async create(provinceData: CreateProvinceRequest): Promise<Province> {
     try {
       const { name, capacity, location, manager_name } = provinceData;
@@ -70,10 +61,6 @@ export class ProvinceModel {
       throw error;
     }
   }
-
-  /**
-   * Update province
-   */
   static async update(id: number, provinceData: UpdateProvinceRequest): Promise<Province | null> {
     try {
       const { name, capacity, location, manager_name } = provinceData;
@@ -94,9 +81,6 @@ export class ProvinceModel {
     }
   }
 
-  /**
-   * Delete province
-   */
   static async delete(id: number): Promise<Province | null> {
     try {
       const result = await database.query('DELETE FROM provinces WHERE id = $1 RETURNING *', [id]);
@@ -110,9 +94,6 @@ export class ProvinceModel {
     }
   }
 
-  /**
-   * Get province statistics
-   */
   static async getStatistics(id: number): Promise<ProvinceStatistics | null> {
     try {
       const result = await database.query(`

@@ -3,9 +3,6 @@ import { Supplier, CreateSupplierRequest, UpdateSupplierRequest, PaginationOptio
 
 export class SupplierService {
 
-  /**
-   * Get all supplier records with filtering and pagination
-   */
   static async getAllSuppliers(
     filters?: {
       farmer_id?: number;
@@ -33,9 +30,6 @@ export class SupplierService {
     }
   }
 
-  /**
-   * Get supplier by ID
-   */
   static async getSupplierById(id: number): Promise<Supplier | null> {
     try {
       return await SupplierModel.findById(id);
@@ -45,9 +39,6 @@ export class SupplierService {
     }
   }
 
-  /**
-   * Get supplier records by farmer ID
-   */
   static async getSuppliersByFarmer(farmerId: number): Promise<Supplier[]> {
     try {
       return await SupplierModel.findByFarmerId(farmerId);
@@ -57,9 +48,6 @@ export class SupplierService {
     }
   }
 
-  /**
-   * Get supplier records by product ID
-   */
   static async getSuppliersByProduct(productId: number): Promise<Supplier[]> {
     try {
       return await SupplierModel.findByProductId(productId);
@@ -69,12 +57,8 @@ export class SupplierService {
     }
   }
 
-  /**
-   * Create new supplier record
-   */
   static async createSupplier(supplierData: CreateSupplierRequest): Promise<Supplier> {
     try {
-      // Basic validation
       if (!supplierData.farmer_id || supplierData.farmer_id <= 0) {
         throw new Error('Valid farmer ID is required');
       }
@@ -98,12 +82,8 @@ export class SupplierService {
     }
   }
 
-  /**
-   * Update supplier record
-   */
   static async updateSupplier(id: number, updateData: UpdateSupplierRequest): Promise<Supplier | null> {
     try {
-      // Basic validation
       if (updateData.farmer_id !== undefined && updateData.farmer_id <= 0) {
         throw new Error('Valid farmer ID is required');
       }
@@ -127,12 +107,8 @@ export class SupplierService {
     }
   }
 
-  /**
-   * Delete supplier record
-   */
   static async deleteSupplier(id: number): Promise<boolean> {
     try {
-      // Check if supplier exists
       const supplier = await SupplierModel.findById(id);
       if (!supplier) {
         throw new Error('Supplier record not found');

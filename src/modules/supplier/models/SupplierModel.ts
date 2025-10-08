@@ -3,9 +3,6 @@ import { Supplier, CreateSupplierRequest, UpdateSupplierRequest, PaginationOptio
 
 export class SupplierModel {
 
-  /**
-   * Get all supplier records with detailed information
-   */
   static async findAll(): Promise<Supplier[]> {
     try {
       const result = await database.query(`
@@ -26,10 +23,6 @@ export class SupplierModel {
       throw error;
     }
   }
-
-  /**
-   * Get supplier records by farmer ID
-   */
   static async findByFarmerId(farmerId: number): Promise<Supplier[]> {
     try {
       const result = await database.query(`
@@ -51,10 +44,6 @@ export class SupplierModel {
       throw error;
     }
   }
-
-  /**
-   * Get supplier records by product ID
-   */
   static async findByProductId(productId: number): Promise<Supplier[]> {
     try {
       const result = await database.query(`
@@ -76,10 +65,6 @@ export class SupplierModel {
       throw error;
     }
   }
-
-  /**
-   * Get supplier record by ID with detailed information
-   */
   static async findById(id: number): Promise<Supplier | null> {
     try {
       const result = await database.query(`
@@ -104,10 +89,6 @@ export class SupplierModel {
       throw error;
     }
   }
-
-  /**
-   * Create new supplier record
-   */
   static async create(supplierData: CreateSupplierRequest): Promise<Supplier> {
     try {
       const {
@@ -134,10 +115,6 @@ export class SupplierModel {
       throw error;
     }
   }
-
-  /**
-   * Update supplier record
-   */
   static async update(id: number, supplierData: UpdateSupplierRequest): Promise<Supplier | null> {
     try {
       const fields = [];
@@ -212,10 +189,6 @@ export class SupplierModel {
       throw error;
     }
   }
-
-  /**
-   * Delete supplier record
-   */
   static async delete(id: number): Promise<boolean> {
     try {
       const result = await database.query(`
@@ -229,9 +202,6 @@ export class SupplierModel {
     }
   }
 
-  /**
-   * Get supplier records with pagination and filtering
-   */
   static async findAllPaginated(
     filters?: {
       farmer_id?: number;
@@ -258,7 +228,6 @@ export class SupplierModel {
       const params: any[] = [];
       let paramIndex = 1;
 
-      // Apply filters
       if (filters?.farmer_id) {
         query += ` AND s.farmer_id = $${paramIndex}`;
         params.push(filters.farmer_id);
@@ -283,7 +252,6 @@ export class SupplierModel {
         paramIndex++;
       }
 
-      // Count total records first
       let countQuery = `SELECT COUNT(*) as total FROM suppliers s WHERE 1=1`;
       const countParams = [];
       let countParamIndex = 1;
@@ -309,12 +277,10 @@ export class SupplierModel {
       const countResult = await database.query(countQuery, countParams);
       const total = parseInt(countResult.rows[0].total);
 
-      // Apply sorting
       const sortBy = pagination?.sortBy || 'created_at';
       const sortOrder = pagination?.sortOrder || 'DESC';
       query += ` ORDER BY s.${sortBy} ${sortOrder}`;
 
-      // Apply pagination
       if (pagination?.limit) {
         query += ` LIMIT $${paramIndex}`;
         params.push(pagination.limit);

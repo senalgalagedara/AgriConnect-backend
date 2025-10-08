@@ -3,9 +3,6 @@ import { Product, CreateProductRequest, UpdateProductRequest, PaginationOptions 
 
 export class ProductModel {
 
-  /**
-   * Get all products by province
-   */
   static async findByProvinceId(provinceId: number): Promise<Product[]> {
     try {
       const result = await database.query(`
@@ -26,9 +23,6 @@ export class ProductModel {
     }
   }
 
-  /**
-   * Get product by ID with detailed information
-   */
   static async findById(id: number): Promise<Product | null> {
     try {
       const result = await database.query(`
@@ -51,10 +45,6 @@ export class ProductModel {
       throw error;
     }
   }
-
-  /**
-   * Get all products with pagination and filtering
-   */
   static async findAll(
     filters?: {
       status?: string;
@@ -79,7 +69,6 @@ export class ProductModel {
       const params: any[] = [];
       let paramIndex = 1;
 
-      // Apply filters
       if (filters?.status) {
         query += ` AND p.status = $${paramIndex}`;
         params.push(filters.status);
@@ -98,7 +87,6 @@ export class ProductModel {
         paramIndex++;
       }
 
-      // Count total records first
       let countQuery = `SELECT COUNT(*) as total FROM products p WHERE 1=1`;
       const countParams = [];
       let countParamIndex = 1;
@@ -124,12 +112,10 @@ export class ProductModel {
       const countResult = await database.query(countQuery, countParams);
       const total = parseInt(countResult.rows[0].total);
 
-      // Apply sorting
       const sortBy = pagination?.sortBy || 'created_at';
       const sortOrder = pagination?.sortOrder || 'DESC';
       query += ` ORDER BY p.${sortBy} ${sortOrder}`;
 
-      // Apply pagination
       if (pagination?.limit) {
         query += ` LIMIT $${paramIndex}`;
         params.push(pagination.limit);
@@ -150,14 +136,12 @@ export class ProductModel {
     }
   }
 
-  /**
-   * Create new product
-   */
+
   static async create(productData: CreateProductRequest): Promise<Product> {
     try {
       const {
         name,
-        category_id = 1, // Default category if not provided
+        category_id = 1, 
         province_id,
         daily_limit,
         current_stock = 0,
@@ -181,9 +165,6 @@ export class ProductModel {
     }
   }
 
-  /**
-   * Update product
-   */
   static async update(id: number, productData: UpdateProductRequest): Promise<Product | null> {
     try {
       const fields = [];
@@ -265,9 +246,6 @@ export class ProductModel {
     }
   }
 
-  /**
-   * Update product stock
-   */
   static async updateStock(id: number, stockChange: number): Promise<Product | null> {
     try {
       const result = await database.query(`
@@ -289,9 +267,7 @@ export class ProductModel {
     }
   }
 
-  /**
-   * Delete product (soft delete)
-   */
+ 
   static async delete(id: number): Promise<boolean> {
     try {
       const result = await database.query(`
@@ -307,9 +283,6 @@ export class ProductModel {
     }
   }
 
-  /**
-   * Get products with low stock
-   */
   static async findLowStock(): Promise<Product[]> {
     try {
       const result = await database.query(`
@@ -331,9 +304,7 @@ export class ProductModel {
     }
   }
 
-  /**
-   * Check product availability
-   */
+
   static async checkAvailability(id: number): Promise<{
     available: boolean;
     current_stock: number;

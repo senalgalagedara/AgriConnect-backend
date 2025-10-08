@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { body, param } from 'express-validator';
+import { body, param, validationResult } from 'express-validator';
 import * as CartController from '../controllers/CartController';
 
 const router = Router();
@@ -11,11 +11,24 @@ const validateUserId = [
 ];
 
 const validateItemId = [
+  // itemId should be a positive integer (cart_item id)
   param('itemId')
-    .isString()
-    .notEmpty()
-    .withMessage('Item ID is required')
+    .isInt({ min: 1 })
+    .withMessage('Item ID must be a positive integer')
 ];
+
+// Middleware to check results of validators and return a 400 with errors if any
+const handleValidation = (req: any, res: any, next: any) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      success: false,
+      message: 'Validation failed',
+      errors: errors.array(),
+    });
+  }
+  next();
+};
 
 const validateAddItem = [
   body('productId')
@@ -36,11 +49,11 @@ const validateUpdateQty = [
 // Static routes first to avoid being captured by :userId
 router.get('/config/constants', CartController.getCartConfig);
 // Param routes
-router.get('/:userId', validateUserId, CartController.getCart);
-router.get('/:userId/items', validateUserId, CartController.getCartItems);
-router.post('/:userId/items', validateUserId, validateAddItem, CartController.addItem);
-router.patch('/:userId/items/:itemId', validateUserId, validateItemId, validateUpdateQty, CartController.updateQty);
-router.delete('/:userId/items/:itemId', validateUserId, validateItemId, CartController.removeItem);
-router.delete('/:userId/clear', validateUserId, CartController.clearCart);
+router.get('/:userId', validateUserId, handleValidation, CartController.getCart);
+router.get('/:userId/items', validateUserId, handleValidation, CartController.getCartItems);
+router.post('/:userId/items', validateUserId, validateAddItem, handleValidation, CartController.addItem);
+router.patch('/:userId/items/:itemId', validateUserId, validateItemId, validateUpdateQty, handleValidation, CartController.updateQty);
+router.delete('/:userId/items/:itemId', validateUserId, validateItemId, handleValidation, CartController.removeItem);
+router.delete('/:userId/clear', validateUserId, handleValidation, CartController.clearCart);
 
 export default router;

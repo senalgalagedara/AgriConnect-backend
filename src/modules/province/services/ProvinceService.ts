@@ -3,9 +3,6 @@ import { Province, CreateProvinceRequest, UpdateProvinceRequest, ProvinceStatist
 
 export class ProvinceService {
 
-  /**
-   * Get all provinces
-   */
   static async getAllProvinces(): Promise<Province[]> {
     try {
       return await ProvinceModel.findAll();
@@ -15,9 +12,6 @@ export class ProvinceService {
     }
   }
 
-  /**
-   * Get province by ID
-   */
   static async getProvinceById(id: number): Promise<Province | null> {
     try {
       if (!id || id <= 0) {
@@ -31,32 +25,24 @@ export class ProvinceService {
     }
   }
 
-  /**
-   * Create new province
-   */
   static async createProvince(provinceData: CreateProvinceRequest): Promise<Province> {
     try {
-      // Validate required fields
       if (!provinceData.name || provinceData.name.trim().length === 0) {
         throw new Error('Province name is required');
       }
       
-      // Validate name length
       if (provinceData.name.length < 2 || provinceData.name.length > 100) {
         throw new Error('Province name must be between 2 and 100 characters');
       }
 
-      // Validate capacity if provided
       if (provinceData.capacity !== undefined && provinceData.capacity < 0) {
         throw new Error('Capacity must be a positive number');
       }
 
-      // Validate location length if provided
       if (provinceData.location && provinceData.location.length > 200) {
         throw new Error('Location must not exceed 200 characters');
       }
 
-      // Validate manager name length if provided
       if (provinceData.manager_name && provinceData.manager_name.length > 100) {
         throw new Error('Manager name must not exceed 100 characters');
       }
@@ -68,22 +54,17 @@ export class ProvinceService {
     }
   }
 
-  /**
-   * Update province
-   */
   static async updateProvince(id: number, updateData: UpdateProvinceRequest): Promise<Province | null> {
     try {
       if (!id || id <= 0) {
         throw new Error('Invalid province ID');
       }
 
-      // Check if province exists
       const existingProvince = await ProvinceModel.findById(id);
       if (!existingProvince) {
         throw new Error('Province not found');
       }
 
-      // Validate fields if provided
       if (updateData.name !== undefined) {
         if (!updateData.name || updateData.name.trim().length === 0) {
           throw new Error('Province name is required');
@@ -112,16 +93,12 @@ export class ProvinceService {
     }
   }
 
-  /**
-   * Delete province
-   */
   static async deleteProvince(id: number): Promise<boolean> {
     try {
       if (!id || id <= 0) {
         throw new Error('Invalid province ID');
       }
 
-      // Check if province exists
       const existingProvince = await ProvinceModel.findById(id);
       if (!existingProvince) {
         throw new Error('Province not found');
@@ -135,9 +112,6 @@ export class ProvinceService {
     }
   }
 
-  /**
-   * Get province statistics
-   */
   static async getProvinceStatistics(id: number): Promise<ProvinceStatistics | null> {
     try {
       if (!id || id <= 0) {

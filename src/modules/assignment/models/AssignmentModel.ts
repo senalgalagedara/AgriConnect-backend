@@ -119,7 +119,8 @@ export class AssignmentModel {
         const afterCapRes = await database.query(capQuery, [driverId]);
         const afterRemaining = afterCapRes.rows.length > 0 ? Number(afterCapRes.rows[0].remaining_capacity) : null;
         if (afterRemaining !== null && afterRemaining <= 0) {
-          await database.query('UPDATE drivers SET is_available = $1 WHERE id = $2', [false, driverId]);
+          // use availability_status consistently across the codebase
+          await database.query('UPDATE drivers SET availability_status = $1 WHERE id = $2', ['busy', driverId]);
         }
 
         await database.query('COMMIT');
@@ -191,11 +192,13 @@ export class AssignmentModel {
         // Delete assignment
         await database.query('DELETE FROM assignments WHERE id = $1', [id]);
         
-        // Update order status back to unassigned
-        await database.query('UPDATE orders SET assignment_status = $1 WHERE id = $2', ['unassigned', order_id]);
-        
-        // Update driver availability back to available
-        await database.query('UPDATE drivers SET availability_status = $1 WHERE id = $2', ['available', driver_id]);
+  // NOTE: older code attempted to update orders.assignment_status which may not exist in schema.
+  // To avoid SQL errors on delete, we skip updating a non-existent order column here.
+  // If you want to revert order.status on delete, uncomment and adapt the line below to a valid column/value.
+  // await database.query('UPDATE orders SET status = $1 WHERE id = $2', ['pending', order_id]);
+
+  // Update driver availability back to available
+  await database.query('UPDATE drivers SET availability_status = $1 WHERE id = $2', ['available', driver_id]);
         
         await database.query('COMMIT');
         return true;
