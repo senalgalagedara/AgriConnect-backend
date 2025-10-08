@@ -5,13 +5,15 @@
   "main": "src/server.ts",
   "scripts": {
     "start": "ts-node src/server.ts",
-    "dev": "ts-node src/server.ts",
+  "dev": "nodemon --exec ts-node src/server.ts",
     "watch": "nodemon --exec ts-node src/server.ts",
     "build": "tsc",
     "start:prod": "node dist/server.js",
     "type-check": "tsc --noEmit",
     "clean": "rimraf dist",
-    "prebuild": "npm run clean"
+    "prebuild": "npm run clean",
+    "db:migrate": "ts-node scripts/runMigrations.ts",
+    "db:bootstrap": "ts-node scripts/bootstrapDatabase.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -20,6 +22,7 @@
     "dotenv": "^16.6.1",
     "express": "^4.18.2",
     "express-validator": "^7.0.1",
+    "node-fetch": "^2.7.0",
     "pg": "^8.16.3"
   },
   "devDependencies": {
@@ -28,6 +31,7 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
     "@types/node": "^24.5.2",
+    "@types/node-fetch": "^2.6.13",
     "@types/pg": "^8.15.5",
     "nodemon": "^3.1.10",
     "rimraf": "^6.0.1",
