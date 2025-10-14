@@ -4,7 +4,6 @@ import { ProvinceController } from '../controllers/ProvinceController';
 
 const router = Router();
 
-// Validation middleware for creating provinces
 const validateProvince = [
   body('name')
     .trim()
@@ -28,7 +27,6 @@ const validateProvince = [
     .withMessage('Manager name must not exceed 100 characters')
 ];
 
-// Validation middleware for updating provinces
 const validateProvinceUpdate = [
   body('name')
     .optional()
@@ -53,7 +51,6 @@ const validateProvinceUpdate = [
     .withMessage('Manager name must not exceed 100 characters')
 ];
 
-// Routes
 router.get('/', ProvinceController.getAllProvinces);
 router.get('/:id/statistics', ProvinceController.getProvinceStatistics);
 router.get('/:id', ProvinceController.getProvinceById);

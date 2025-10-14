@@ -4,7 +4,6 @@ import { ProductController } from '../controllers/ProductController';
 
 const router = Router();
 
-// Validation middleware for creating products
 const validateCreateProduct = [
   body('name')
     .trim()
@@ -47,7 +46,6 @@ const validateCreateProduct = [
     .withMessage('Status must be active, inactive, or discontinued')
 ];
 
-// Validation middleware for updating products
 const validateUpdateProduct = [
   body('name')
     .optional()
@@ -94,7 +92,6 @@ const validateUpdateProduct = [
     .withMessage('Status must be active, inactive, or discontinued')
 ];
 
-// Validation middleware for stock updates
 const validateStockUpdate = [
   body('stockChange')
     .isNumeric()
@@ -107,7 +104,6 @@ const validateStockUpdate = [
     })
 ];
 
-// Routes
 router.get('/', ProductController.getAllProducts);
 router.get('/low-stock', ProductController.getLowStockProducts);
 router.get('/province/:provinceId', ProductController.getProductsByProvince);

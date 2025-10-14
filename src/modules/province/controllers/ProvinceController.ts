@@ -5,9 +5,6 @@ import { ApiResponse, CreateProvinceRequest, UpdateProvinceRequest } from '../..
 
 export class ProvinceController {
 
-  /**
-   * Get all provinces
-   */
   static async getAllProvinces(req: Request, res: Response): Promise<void> {
     try {
       const provinces = await ProvinceService.getAllProvinces();
@@ -29,9 +26,6 @@ export class ProvinceController {
     }
   }
 
-  /**
-   * Get province by ID
-   */
   static async getProvinceById(req: Request, res: Response): Promise<void> {
     try {
       const id = parseInt(req.params.id);
@@ -72,13 +66,8 @@ export class ProvinceController {
       res.status(500).json(response);
     }
   }
-
-  /**
-   * Create new province
-   */
   static async createProvince(req: Request, res: Response): Promise<void> {
     try {
-      // Check for validation errors
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
         const response: ApiResponse = {
@@ -112,10 +101,6 @@ export class ProvinceController {
       res.status(400).json(response);
     }
   }
-
-  /**
-   * Update province
-   */
   static async updateProvince(req: Request, res: Response): Promise<void> {
     try {
       const id = parseInt(req.params.id);
@@ -129,7 +114,6 @@ export class ProvinceController {
         return;
       }
 
-      // Check for validation errors
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
         const response: ApiResponse = {
@@ -173,9 +157,6 @@ export class ProvinceController {
     }
   }
 
-  /**
-   * Delete province
-   */
   static async deleteProvince(req: Request, res: Response): Promise<void> {
     try {
       const id = parseInt(req.params.id);
@@ -216,9 +197,6 @@ export class ProvinceController {
     }
   }
 
-  /**
-   * Get province statistics
-   */
   static async getProvinceStatistics(req: Request, res: Response): Promise<void> {
     try {
       const id = parseInt(req.params.id);

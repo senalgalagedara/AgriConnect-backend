@@ -4,7 +4,6 @@ import { SupplierController } from '../controllers/SupplierController';
 
 const router = Router();
 
-// Validation middleware for creating supplier records
 const validateCreateSupplier = [
   body('farmer_id')
     .isInt({ min: 1 })
@@ -38,7 +37,6 @@ const validateCreateSupplier = [
     .withMessage('Status must be active, inactive, pending, or completed')
 ];
 
-// Validation middleware for updating supplier records
 const validateUpdateSupplier = [
   body('farmer_id')
     .optional()
@@ -77,7 +75,6 @@ const validateUpdateSupplier = [
     .withMessage('Status must be active, inactive, pending, or completed')
 ];
 
-// Routes
 router.get('/', SupplierController.getAllSuppliers);
 router.get('/farmer/:farmerId', SupplierController.getSuppliersByFarmer);
 router.get('/product/:productId', SupplierController.getSuppliersByProduct);
