@@ -175,23 +175,17 @@ export class AssignmentModel {
   static async update(id: number, assignmentData: UpdateAssignmentRequest): Promise<Assignment | null> {
     try {
       const { schedule_time, special_notes, status } = assignmentData;
-      
+
       const query = `
-            // Re-throw original error to surface meaningful message to client
-            throw error;
-        SET schedule_time = COALESCE($1, schedule_time), 
-            special_notes = COALESCE($2, special_notes), 
-            status = COALESCE($3, status), 
-          // Preserve original error message if available
-          if (error instanceof Error && error.message) {
-            throw new Error(error.message);
-          }
-          throw new Error('Failed to create assignment');
+        UPDATE assignments
+        SET schedule_time = COALESCE($1, schedule_time),
+            special_notes = COALESCE($2, special_notes),
+            status = COALESCE($3, status)
         WHERE id = $4
         RETURNING *
       `;
-      
-      const result = await database.query(query, [schedule_time, special_notes, status, id]);
+
+      const result = await database.query(query, [schedule_time ?? null, special_notes ?? null, status ?? null, id]);
       
       if (result.rows.length === 0) {
         return null;
