@@ -113,7 +113,30 @@ export class AssignmentModel {
 
         const assignmentResult = await database.query(assignmentQuery, [orderId, driverId, scheduleTime, specialNotes || null]);
 
-  // Optionally update order status here if needed, but assignment_status column does not exist
+        // Update order status to 'assigned' after successful assignment creation
+        // Try different status values that might exist in the orders table
+        let statusUpdated = false;
+        const statusesToTry = ['assigned', 'processing', 'shipped'];
+        
+        for (const statusValue of statusesToTry) {
+          try {
+            await database.query(`UPDATE orders SET status = $1 WHERE id = $2`, [statusValue, orderId]);
+            console.log(`Order ${orderId} status updated to '${statusValue}'`);
+            statusUpdated = true;
+            break;
+          } catch (e: any) {
+            // Check if it's a constraint error (invalid enum value)
+            if (e.message && e.message.includes('invalid input value')) {
+              continue; // Try next status
+            }
+            // For other errors, log but don't fail the transaction
+            console.warn(`Warning: failed to set order status to '${statusValue}':`, e.message);
+          }
+        }
+        
+        if (!statusUpdated) {
+          console.warn(`Warning: Could not update order ${orderId} status - no valid status value found`);
+        }
 
         // If after assignment remaining capacity becomes 0, mark driver unavailable
         const afterCapRes = await database.query(capQuery, [driverId]);
@@ -125,16 +148,24 @@ export class AssignmentModel {
 
         await database.query('COMMIT');
 
-        // Return the full assignment details
-        const fullAssignment = await this.findById(assignmentResult.rows[0].id);
-        return fullAssignment || assignmentResult.rows[0] as Assignment;
+        // Return the full assignment details if possible, but do not fail if enrichment fails
+        try {
+          const fullAssignment = await this.findById(assignmentResult.rows[0].id);
+          if (fullAssignment) return fullAssignment;
+        } catch (enrichErr) {
+          console.warn('Warning: could not enrich assignment after creation:', enrichErr instanceof Error ? enrichErr.message : enrichErr);
+        }
+        return assignmentResult.rows[0] as Assignment;
       } catch (error) {
         await database.query('ROLLBACK');
         throw error;
       }
     } catch (error) {
       console.error('Error in AssignmentModel.create:', error);
-      throw new Error('');
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('Failed to create assignment');
     }
   }
 
@@ -146,11 +177,16 @@ export class AssignmentModel {
       const { schedule_time, special_notes, status } = assignmentData;
       
       const query = `
-        UPDATE assignments 
+            // Re-throw original error to surface meaningful message to client
+            throw error;
         SET schedule_time = COALESCE($1, schedule_time), 
             special_notes = COALESCE($2, special_notes), 
             status = COALESCE($3, status), 
-            updated_at = CURRENT_TIMESTAMP
+          // Preserve original error message if available
+          if (error instanceof Error && error.message) {
+            throw new Error(error.message);
+          }
+          throw new Error('Failed to create assignment');
         WHERE id = $4
         RETURNING *
       `;

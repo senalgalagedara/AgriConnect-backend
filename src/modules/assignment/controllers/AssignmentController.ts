@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { body, param, query } from 'express-validator';
+import { body, param, query, oneOf } from 'express-validator';
 import { AssignmentService } from '../services/AssignmentService';
 import { CreateAssignmentRequest, UpdateAssignmentRequest } from '../../../types/entities';
 import { ApiResponse } from '../../../types/database';
@@ -10,22 +10,20 @@ export class AssignmentController {
    * Validation rules for creating assignment
    */
   static createValidation = [
-    body('orderId')
-      .notEmpty()
-      .withMessage('Order ID is required')
-      .isInt({ min: 1 })
-      .withMessage('Order ID must be a valid positive integer'),
-    body('driverId')
-      .notEmpty()
-      .withMessage('Driver ID is required')
-      .isInt({ min: 1 })
-      .withMessage('Driver ID must be a valid positive integer'),
-    body('scheduleTime')
-      .notEmpty()
-      .withMessage('Schedule time is required')
-      .isISO8601()
-      .withMessage('Schedule time must be a valid ISO 8601 date'),
-    body('specialNotes')
+    // Accept either camelCase or snake_case and ensure a single combined error message
+    oneOf([
+      body('orderId').exists().withMessage('Order ID is required').bail().toInt().isInt({ min: 1 }),
+      body('order_id').exists().withMessage('Order ID is required').bail().toInt().isInt({ min: 1 })
+    ], { message: 'Order ID is required and must be a valid positive integer' }),
+    oneOf([
+      body('driverId').exists().withMessage('Driver ID is required').bail().toInt().isInt({ min: 1 }),
+      body('driver_id').exists().withMessage('Driver ID is required').bail().toInt().isInt({ min: 1 })
+    ], { message: 'Driver ID is required and must be a valid positive integer' }),
+    oneOf([
+      body('scheduleTime').exists().withMessage('Schedule time is required').bail().isISO8601(),
+      body('schedule_time').exists().withMessage('Schedule time is required').bail().isISO8601()
+    ], { message: 'Schedule time is required and must be a valid ISO 8601 date' }),
+    body(['specialNotes', 'special_notes'])
       .optional()
       .isLength({ max: 500 })
       .withMessage('Special notes cannot exceed 500 characters')
@@ -40,7 +38,11 @@ export class AssignmentController {
       .withMessage('Assignment ID is required')
       .isInt({ min: 1 })
       .withMessage('Assignment ID must be a valid positive integer'),
-    body('schedule_time')
+    body(['schedule_time', 'scheduleTime'])
+      .customSanitizer((_, { req }) => {
+        const v = req.body.schedule_time ?? req.body.scheduleTime;
+        return typeof v === 'string' ? v.trim() : v;
+      })
       .optional()
       .isISO8601()
       .withMessage('Schedule time must be a valid ISO 8601 date'),
@@ -48,7 +50,7 @@ export class AssignmentController {
       .optional()
       .isIn(['pending', 'in_progress', 'completed', 'cancelled'])
       .withMessage('Status must be one of: pending, in_progress, completed, cancelled'),
-    body('special_notes')
+    body(['special_notes', 'specialNotes'])
       .optional()
       .isLength({ max: 500 })
       .withMessage('Special notes cannot exceed 500 characters')
@@ -121,8 +123,8 @@ export class AssignmentController {
       if (!errors.isEmpty()) {
         const response: ApiResponse = {
           success: false,
-          message: 'Validation failed',
-          error: 'Validation failed',
+          message: '',
+          error: '',
           errors: errors.array().map(err => ({
             field: err.type === 'field' ? err.path : 'unknown',
             message: err.msg
@@ -172,8 +174,8 @@ export class AssignmentController {
       if (!errors.isEmpty()) {
         const response: ApiResponse = {
           success: false,
-          message: 'Validation failed',
-          error: 'Validation failed',
+          message: '',
+          error: '',
           errors: errors.array().map(err => ({
             field: err.type === 'field' ? err.path : 'unknown',
             message: err.msg
@@ -184,10 +186,10 @@ export class AssignmentController {
       }
 
       const assignmentData: CreateAssignmentRequest = {
-        orderId: req.body.orderId,
-        driverId: req.body.driverId,
-        scheduleTime: req.body.scheduleTime,
-        specialNotes: req.body.specialNotes
+        orderId: Number(req.body.orderId ?? req.body.order_id),
+        driverId: Number(req.body.driverId ?? req.body.driver_id),
+        scheduleTime: req.body.scheduleTime ?? req.body.schedule_time,
+        specialNotes: req.body.specialNotes ?? req.body.special_notes
       };
 
       const assignment = await AssignmentService.createAssignment(assignmentData);
@@ -203,8 +205,8 @@ export class AssignmentController {
       console.error('Error in AssignmentController.createAssignment:', error);
       const response: ApiResponse = {
         success: false,
-        message: 'Assignment created successfully',
-        error: error instanceof Error ? error.message : 'Assignment created successfully'
+        message: 'Failed to create assignment',
+        error: error instanceof Error ? error.message : 'Failed to create assignment'
       };
       res.status(500).json(response);
     }
@@ -219,8 +221,8 @@ export class AssignmentController {
       if (!errors.isEmpty()) {
         const response: ApiResponse = {
           success: false,
-          message: 'Validation failed',
-          error: 'Validation failed',
+          message: '',
+          error: '',
           errors: errors.array().map(err => ({
             field: err.type === 'field' ? err.path : 'unknown',
             message: err.msg
@@ -272,8 +274,8 @@ export class AssignmentController {
       if (!errors.isEmpty()) {
         const response: ApiResponse = {
           success: false,
-          message: 'Validation failed',
-          error: 'Validation failed',
+          message: '',
+          error: '',
           errors: errors.array().map(err => ({
             field: err.type === 'field' ? err.path : 'unknown',
             message: err.msg
@@ -322,8 +324,8 @@ export class AssignmentController {
       if (!errors.isEmpty()) {
         const response: ApiResponse = {
           success: false,
-          message: 'Validation failed',
-          error: 'Validation failed',
+          message: '',
+          error: '',
           errors: errors.array().map(err => ({
             field: err.type === 'field' ? err.path : 'unknown',
             message: err.msg
@@ -363,8 +365,8 @@ export class AssignmentController {
       if (!errors.isEmpty()) {
         const response: ApiResponse = {
           success: false,
-          message: 'Validation failed',
-          error: 'Validation failed',
+          message: '',
+          error: '',
           errors: errors.array().map(err => ({
             field: err.type === 'field' ? err.path : 'unknown',
             message: err.msg

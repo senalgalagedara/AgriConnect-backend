@@ -1,6 +1,7 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { body, param, validationResult } from 'express-validator';
 import * as OrderController from '../controllers/OrderController';
+import { AssignmentService } from '../../assignment/services/AssignmentService';
 
 const router = Router();
 
@@ -144,7 +145,7 @@ const validateCheckout = [
 
 const validateUpdateStatus = [
   body('status')
-    .isIn(['pending', 'processing', 'shipped', 'delivered', 'cancelled', 'paid'])
+    .isIn(['pending', 'assigned', 'dispatched', 'processing', 'shipped', 'delivered', 'cancelled', 'paid'])
     .withMessage('Invalid order status'),
   body('paymentMethod')
     .optional()
@@ -170,6 +171,36 @@ router.get('/:orderId', validateOrderId, OrderController.getOrderById);
 
 // Update order status
 router.patch('/:orderId/status', validateOrderId, validateUpdateStatus, handleValidationErrors, OrderController.updateOrderStatus);
+
+// Assign a driver to an order (compatibility endpoint for frontend)
+router.post(
+  '/:orderId/assign',
+  [
+    param('orderId').isInt({ min: 1 }).withMessage('Order ID must be a positive integer'),
+    // accept both camelCase and snake_case
+    body(['driverId', 'driver_id']).isInt({ min: 1 }).withMessage('Driver ID must be a positive integer'),
+    body(['scheduleTime', 'schedule_time']).isISO8601().withMessage('scheduleTime must be ISO8601 date')
+  ],
+  async (req: Request, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
+    }
+
+    try {
+      const orderId = parseInt(req.params.orderId, 10);
+      const driverId = req.body.driverId ?? req.body.driver_id;
+      const scheduleTime = req.body.scheduleTime ?? req.body.schedule_time;
+      const specialNotes = req.body.specialNotes ?? req.body.special_notes;
+
+      const assignment = await AssignmentService.createAssignment({ orderId, driverId, scheduleTime, specialNotes });
+      return res.status(201).json({ success: true, message: 'Driver assigned successfully', data: assignment });
+    } catch (err) {
+      console.error('Error in POST /orders/:orderId/assign:', err);
+      return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to assign driver' });
+    }
+  }
+);
 
 // Cancel order
 router.delete('/:orderId', validateOrderId, OrderController.cancelOrder);
