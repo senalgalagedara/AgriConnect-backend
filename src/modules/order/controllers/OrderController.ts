@@ -34,8 +34,11 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
     res.status(201).json({
       success: true,
       message: 'Order created successfully',
-      data: order
-    } as ApiResponse<Order>);
+      data: {
+        id: order.id,
+        order: order
+      }
+    } as ApiResponse);
   } catch (error) {
     console.error('Error in OrderController.createOrder:', error);
     res.status(500).json({
@@ -68,8 +71,11 @@ export const checkout = async (req: Request, res: Response): Promise<void> => {
     res.status(201).json({
       success: true,
       message: 'Order created successfully',
-      data: order
-    } as ApiResponse<Order>);
+      data: {
+        id: order.id,
+        order: order
+      }
+    } as ApiResponse);
   } catch (error) {
     console.error('Error in OrderController.checkout:', error);
     res.status(500).json({
@@ -197,7 +203,7 @@ export const getUserOrderStats = async (req: Request, res: Response): Promise<vo
 export const updateOrderStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const orderId = parseInt(req.params.orderId, 10);
-    const { status } = req.body;
+    const { status, paymentMethod, cardLast4 } = req.body;
 
     if (!orderId || orderId <= 0) {
       res.status(400).json({
@@ -215,7 +221,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    const updatedOrder = await OrderService.updateOrderStatus(orderId, status);
+  const updatedOrder = await OrderService.updateOrderStatus(orderId, status, paymentMethod, cardLast4);
 
     if (!updatedOrder) {
       res.status(404).json({
@@ -232,10 +238,16 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
     } as ApiResponse<Order>);
   } catch (error) {
     console.error('Error in OrderController.updateOrderStatus:', error);
-    res.status(500).json({
+    const errMsg = error instanceof Error ? error.message : 'Failed to update order status';
+    // Map known messages to better status codes
+    const lower = errMsg.toLowerCase();
+    const statusCode = lower.includes('not found') ? 404
+      : (lower.includes('invalid') || lower.includes('required')) ? 400
+      : 500;
+    res.status(statusCode).json({
       success: false,
-      message: 'Failed to update order status',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      message: errMsg,
+      error: errMsg
     } as ApiResponse);
   }
 };

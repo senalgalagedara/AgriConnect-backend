@@ -1,8 +1,21 @@
 import { Router } from 'express';
-import { body, param } from 'express-validator';
+import { body, param, validationResult } from 'express-validator';
 import * as OrderController from '../controllers/OrderController';
 
 const router = Router();
+
+// Middleware to handle validation errors
+const handleValidationErrors = (req: any, res: any, next: any) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      success: false,
+      message: 'Validation failed',
+      errors: errors.array(),
+    });
+  }
+  next();
+};
 
 /** =========================
  * Validation middleware
@@ -131,8 +144,12 @@ const validateCheckout = [
 
 const validateUpdateStatus = [
   body('status')
-    .isIn(['pending', 'processing', 'shipped', 'delivered', 'cancelled'])
+    .isIn(['pending', 'processing', 'shipped', 'delivered', 'cancelled', 'paid'])
     .withMessage('Invalid order status'),
+  body('paymentMethod')
+    .optional()
+    .isIn(['COD', 'CARD'])
+    .withMessage('Payment method must be either COD or CARD'),
 ];
 
 
@@ -152,7 +169,7 @@ router.get('/user/:userId/stats', validateUserId, OrderController.getUserOrderSt
 router.get('/:orderId', validateOrderId, OrderController.getOrderById);
 
 // Update order status
-router.patch('/:orderId/status', validateOrderId, validateUpdateStatus, OrderController.updateOrderStatus);
+router.patch('/:orderId/status', validateOrderId, validateUpdateStatus, handleValidationErrors, OrderController.updateOrderStatus);
 
 // Cancel order
 router.delete('/:orderId', validateOrderId, OrderController.cancelOrder);

@@ -47,29 +47,13 @@ export class OrderModel {
         throw new Error('No items found in cart');
       }
 
-      // Insert order items and update stock
+      // Insert order items (stock check removed as requested)
       for (const item of cartItemsResult.rows) {
-        // Check stock (FOR UPDATE to avoid race conditions on hot SKUs)
-        const stockCheck = await client.query(
-          `SELECT current_stock FROM products WHERE id = $1 FOR UPDATE`,
-          [item.product_id]
-        );
-
-        if (!stockCheck.rows[0] || Number(stockCheck.rows[0].current_stock) < item.qty) {
-          throw new Error(`Insufficient stock for product: ${item.name}`);
-        }
-
         // Insert order item
         await client.query(
           `INSERT INTO order_items (order_id, product_id, name, price, qty)
            VALUES ($1, $2, $3, $4, $5)`,
-          [order.id, item.product_id, item.name, item.price, item.qty]
-        );
-
-        // Update product stock
-        await client.query(
-          `UPDATE products SET current_stock = current_stock - $1 WHERE id = $2`,
-          [item.qty, item.product_id]
+          [order.id, item.product_id, item.product_name, item.price, item.qty]
         );
       }
 
@@ -171,14 +155,26 @@ export class OrderModel {
   /**
    * Update order status
    */
-  static async updateOrderStatus(orderId: number, status: string): Promise<Order> {
+  static async updateOrderStatus(orderId: number, status: string, paymentMethod?: string, cardLast4?: string): Promise<Order> {
     try {
+      // If paymentMethod is provided and moving to processing, record payment first
+      let targetStatus = status;
+      if (paymentMethod && status === 'processing') {
+        const method = (paymentMethod === 'COD' || paymentMethod === 'CARD') ? paymentMethod : 'COD';
+        await this.markPaid(orderId, method, cardLast4);
+        // If CARD, markPaid already set order to 'paid'; do not overwrite with 'processing'
+        if (method === 'CARD') {
+          targetStatus = 'paid';
+        }
+        // If COD, leave as requested 'processing' or 'pending' depending on caller; here keep 'processing'
+      }
+
       const result = await database.query(
         `UPDATE orders 
             SET status = $1 
           WHERE id = $2 
         RETURNING *`,
-        [status, orderId]
+        [targetStatus, orderId]
       );
 
       if (!result.rows[0]) {
@@ -197,7 +193,7 @@ export class OrderModel {
       return order as Order;
     } catch (error) {
       console.error('Error in OrderModel.updateOrderStatus:', error);
-      throw new Error('Failed to update order status');
+      throw error instanceof Error ? error : new Error('Failed to update order status');
     }
   }
 
@@ -225,12 +221,23 @@ export class OrderModel {
     try {
       await client.query('BEGIN');
 
+      // Ensure payments table exists (safety net if migrations haven't run)
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS payments (
+          id SERIAL PRIMARY KEY,
+          order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+          amount NUMERIC(10,2) NOT NULL,
+          method TEXT NOT NULL CHECK (method IN ('COD','CARD')),
+          card_last4 VARCHAR(4),
+          status TEXT NOT NULL CHECK (status IN ('succeeded','pending')),
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_payments_order_id ON payments(order_id);`);
+
       // Lock order to prevent race conditions and read total
       const ordRes = await client.query(
-        `SELECT id, total, status
-           FROM orders
-          WHERE id = $1
-          FOR UPDATE`,
+        `SELECT id, total, status FROM orders WHERE id = $1 FOR UPDATE`,
         [orderId]
       );
 
@@ -241,13 +248,40 @@ export class OrderModel {
       const amount = Number(ordRes.rows[0].total);
       const paymentStatus: 'succeeded' | 'pending' = method === 'CARD' ? 'succeeded' : 'pending';
 
-      // Insert payment row
-      const payRes = await client.query(
-        `INSERT INTO payments (order_id, amount, method, card_last4, status, created_at)
-         VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
-         RETURNING id, order_id, amount, method, card_last4, status, created_at`,
-        [orderId, amount, method, cardLast4 ?? null, paymentStatus]
+      // Detect payments table columns for compatibility
+      const colsRes = await client.query(
+        `SELECT column_name FROM information_schema.columns 
+          WHERE table_schema = 'public' AND table_name = 'payments'`
       );
+      const cols = new Set(colsRes.rows.map((r: any) => r.column_name));
+      const hasAmount = cols.has('amount');
+      const hasMethod = cols.has('method');
+      const hasCardLast4 = cols.has('card_last4');
+      const hasStatus = cols.has('status');
+      const hasCreatedAt = cols.has('created_at');
+
+      // Build dynamic insert
+      const insertCols: string[] = ['order_id'];
+      const values: any[] = [orderId];
+      const placeholders: string[] = ['$1'];
+      let idx = 2;
+      if (hasAmount) { insertCols.push('amount'); placeholders.push(`$${idx++}`); values.push(amount); }
+      if (hasMethod) { insertCols.push('method'); placeholders.push(`$${idx++}`); values.push(method); }
+      if (hasCardLast4) { insertCols.push('card_last4'); placeholders.push(`$${idx++}`); values.push(cardLast4 ?? null); }
+      if (hasStatus) { insertCols.push('status'); placeholders.push(`$${idx++}`); values.push(paymentStatus); }
+      // created_at: prefer DB default; if no default but column exists, explicitly set CURRENT_TIMESTAMP
+      let createdAtSql = '';
+      if (hasCreatedAt) {
+        insertCols.push('created_at');
+        createdAtSql = ', CURRENT_TIMESTAMP';
+      }
+
+      const insertSql = `INSERT INTO payments (${insertCols.join(', ')}) VALUES (${placeholders.join(', ')}${createdAtSql}) RETURNING *`;
+      const payRes = await client.query(insertSql, values);
+      // If amount column doesn't exist, attach computed amount to returned row for downstream consistency
+      if (!hasAmount && payRes.rows[0]) {
+        (payRes.rows[0] as any).amount = amount;
+      }
 
       // Update order status only if CARD charge succeeded
       if (method === 'CARD') {

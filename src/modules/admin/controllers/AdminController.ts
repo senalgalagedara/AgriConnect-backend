@@ -88,7 +88,38 @@ export const getAvailableDriversWithCapacity = async (req: Request, res: Respons
   }
 };
 
+/**
+ * Hard delete an order by ID (admin only)
+ * This permanently removes the order and its related rows via FK cascades.
+ */
+export const deleteOrderById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const orderId = parseInt(req.params.orderId, 10);
+    if (!orderId || Number.isNaN(orderId) || orderId <= 0) {
+      res.status(400).json({ success: false, message: 'Valid order ID is required' } as ApiResponse);
+      return;
+    }
+
+    // Attempt delete; rely on ON DELETE CASCADE for payments/order_items
+    const result = await database.query(`DELETE FROM orders WHERE id = $1 RETURNING id`, [orderId]);
+    if (result.rowCount === 0) {
+      res.status(404).json({ success: false, message: 'Order not found' } as ApiResponse);
+      return;
+    }
+
+    res.status(204).send();
+  } catch (error) {
+    console.error('Error in AdminController.deleteOrderById:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete order',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    } as ApiResponse);
+  }
+};
+
 export default {
   getAdminOrders,
-  getAvailableDriversWithCapacity
+  getAvailableDriversWithCapacity,
+  deleteOrderById
 };

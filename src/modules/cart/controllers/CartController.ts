@@ -45,7 +45,12 @@ export const getCart = async (req: Request, res: Response): Promise<void> => {
 
     const cartData = await CartService.getCart(userId);
 
-    res.status(200).json(cartData);
+    // Return response in format frontend expects: { items: [...], totals: {...}, cart: {...} }
+    res.status(200).json({
+      items: cartData.items,
+      totals: cartData.totals,
+      cart: cartData.cart
+    });
   } catch (error) {
     console.error('Error in CartController.getCart:', error);
     res.status(500).json({
@@ -85,8 +90,10 @@ export const addItem = async (req: Request, res: Response): Promise<void> => {
     res.status(201).json({
       success: true,
       message: 'Item added to cart successfully',
-      data: cartData
-    } as ApiResponse<CartWithItems>);
+      items: cartData.items,
+      totals: cartData.totals,
+      cart: cartData.cart
+    });
   } catch (error) {
     console.error('Error in CartController.addItem:', error);
     res.status(500).json({
@@ -135,7 +142,13 @@ export const updateQty = async (req: Request, res: Response): Promise<void> => {
 
     const cartData = await CartService.updateItemQuantity(userId, itemId, qty);
 
-    res.status(200).json(cartData);
+    res.status(200).json({
+      success: true,
+      message: 'Item quantity updated successfully',
+      items: cartData.items,
+      totals: cartData.totals,
+      cart: cartData.cart
+    });
   } catch (error) {
     console.error('Error in CartController.updateQty:', error);
     res.status(500).json({
@@ -172,7 +185,13 @@ export const removeItem = async (req: Request, res: Response): Promise<void> => 
 
     const cartData = await CartService.removeItem(userId, itemId);
 
-    res.status(200).json(cartData);
+    res.status(200).json({
+      success: true,
+      message: 'Item removed successfully',
+      items: cartData.items,
+      totals: cartData.totals,
+      cart: cartData.cart
+    });
   } catch (error) {
     console.error('Error in CartController.removeItem:', error);
     res.status(500).json({
@@ -203,8 +222,10 @@ export const clearCart = async (req: Request, res: Response): Promise<void> => {
     res.status(200).json({
       success: true,
       message: 'Cart cleared successfully',
-      data: cartData
-    } as ApiResponse<CartWithItems>);
+      items: cartData.items,
+      totals: cartData.totals,
+      cart: cartData.cart
+    });
   } catch (error) {
     console.error('Error in CartController.clearCart:', error);
     res.status(500).json({

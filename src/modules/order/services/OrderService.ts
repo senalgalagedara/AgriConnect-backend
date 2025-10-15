@@ -111,7 +111,7 @@ export class OrderService {
   /**
    * Update order status
    */
-  static async updateOrderStatus(orderId: number, status: string): Promise<Order> {
+  static async updateOrderStatus(orderId: number, status: string, paymentMethod?: string, cardLast4?: string): Promise<Order> {
     try {
       if (!orderId || orderId <= 0) {
         throw new Error('Valid order ID is required');
@@ -127,7 +127,7 @@ export class OrderService {
         throw new Error(`Invalid order status. Must be one of: ${validStatuses.join(', ')}`);
       }
 
-      const updatedOrder = await OrderModel.updateOrderStatus(orderId, status);
+  const updatedOrder = await OrderModel.updateOrderStatus(orderId, status, paymentMethod, cardLast4);
       
       if (!updatedOrder) {
         throw new Error('Order not found');
@@ -136,7 +136,8 @@ export class OrderService {
       return updatedOrder;
     } catch (error) {
       console.error('Error in OrderService.updateOrderStatus:', error);
-      throw error instanceof Error ? error : new Error('Failed to update order status');
+      // Bubble up the original message for better client feedback
+      throw error instanceof Error ? new Error(error.message) : new Error('Failed to update order status');
     }
   }
 
