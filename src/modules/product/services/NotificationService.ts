@@ -294,4 +294,22 @@ export class NotificationService {
       // Don't throw error - notification failure shouldn't break payment processing
     }
   }
+
+  /**
+   * Create notification when driver is assigned to order
+   */
+  static async notifyDriverAssigned(
+    orderId: number,
+    orderNo: number,
+    driverName: string,
+    driverPhone: string
+  ): Promise<void> {
+    try {
+      const message = `🚗 Driver assigned! ${driverName} (${driverPhone}) has been assigned to Order #${orderNo}.`;
+      await NotificationModel.createOrderNotification(orderId, 'driver_assigned', message);
+    } catch (error) {
+      console.error('Error in NotificationService.notifyDriverAssigned:', error);
+      // Don't throw error - notification failure shouldn't break assignment
+    }
+  }
 }

@@ -12,6 +12,7 @@ export interface ProductNotification {
     | 'stock_updated'
     | 'order_placed'
     | 'order_cancelled'
+    | 'driver_assigned'
     | 'milestone_earnings'
     | 'milestone_orders';
   message: string;
@@ -26,6 +27,8 @@ export interface ProductNotification {
   farmer_name?: string;
   order_no?: number;
   order_total?: number;
+  driver_name?: string;
+  driver_phone?: string;
 }
 
 export class NotificationModel {
@@ -76,7 +79,7 @@ export class NotificationModel {
    */
   static async createOrderNotification(
     orderId: number,
-    type: 'order_placed' | 'order_cancelled' | 'milestone_earnings' | 'milestone_orders',
+    type: 'order_placed' | 'order_cancelled' | 'driver_assigned' | 'milestone_earnings' | 'milestone_orders',
     message: string
   ): Promise<ProductNotification> {
     try {
@@ -160,7 +163,7 @@ export class NotificationModel {
   }
 
   /**
-   * Get all unread notifications with product and order details
+   * Get all unread notifications with product, order and driver details
    */
   static async getUnreadNotifications(): Promise<ProductNotification[]> {
     try {
@@ -171,11 +174,15 @@ export class NotificationModel {
           p.current_stock,
           prov.name as province_name,
           o.order_no,
-          o.total as order_total
+          o.total as order_total,
+          d.name as driver_name,
+          d.phone_number as driver_phone
         FROM notifications n
         LEFT JOIN products p ON n.product_id = p.id
         LEFT JOIN provinces prov ON p.province_id = prov.id
         LEFT JOIN orders o ON n.order_id = o.id
+        LEFT JOIN assignments a ON n.order_id = a.order_id
+        LEFT JOIN drivers d ON a.driver_id = d.id
         WHERE n.is_read = false
         ORDER BY n.created_at DESC
       `);
@@ -199,11 +206,15 @@ export class NotificationModel {
           p.current_stock,
           prov.name as province_name,
           o.order_no,
-          o.total as order_total
+          o.total as order_total,
+          d.name as driver_name,
+          d.phone_number as driver_phone
         FROM notifications n
         LEFT JOIN products p ON n.product_id = p.id
         LEFT JOIN provinces prov ON p.province_id = prov.id
         LEFT JOIN orders o ON n.order_id = o.id
+        LEFT JOIN assignments a ON n.order_id = a.order_id
+        LEFT JOIN drivers d ON a.driver_id = d.id
         ORDER BY n.created_at DESC
         LIMIT $1
       `, [limit]);

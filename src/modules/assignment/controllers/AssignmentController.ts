@@ -4,6 +4,8 @@ import { AssignmentService } from '../services/AssignmentService';
 import { CreateAssignmentRequest, UpdateAssignmentRequest } from '../../../types/entities';
 import { ApiResponse } from '../../../types/database';
 import { validationResult } from 'express-validator';
+import { NotificationService } from '../../product/services/NotificationService';
+import database from '../../../config/database';
 
 export class AssignmentController {
   /**
@@ -193,6 +195,23 @@ export class AssignmentController {
       };
 
       const assignment = await AssignmentService.createAssignment(assignmentData);
+
+      // Get order and driver details for notification
+      const orderResult = await database.query('SELECT id, order_no FROM orders WHERE id = $1', [assignmentData.orderId]);
+      const driverResult = await database.query('SELECT name, phone_number FROM drivers WHERE id = $1', [assignmentData.driverId]);
+      
+      if (orderResult.rows.length > 0 && driverResult.rows.length > 0) {
+        const order = orderResult.rows[0];
+        const driver = driverResult.rows[0];
+        
+        // Send notification
+        NotificationService.notifyDriverAssigned(
+          order.id,
+          order.order_no || order.id,
+          driver.name,
+          driver.phone_number
+        ).catch(err => console.error('Failed to send driver assignment notification:', err));
+      }
 
       const response: ApiResponse = {
         success: true,
