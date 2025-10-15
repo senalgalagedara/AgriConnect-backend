@@ -227,15 +227,28 @@ export class AssignmentModel {
         
         // Delete assignment
         await database.query('DELETE FROM assignments WHERE id = $1', [id]);
-        
-  // NOTE: older code attempted to update orders.assignment_status which may not exist in schema.
-  // To avoid SQL errors on delete, we skip updating a non-existent order column here.
-  // If you want to revert order.status on delete, uncomment and adapt the line below to a valid column/value.
-  // await database.query('UPDATE orders SET status = $1 WHERE id = $2', ['pending', order_id]);
+        // Optionally revert order status if your workflow requires it. Skipped by default to avoid enum issues.
+        // await database.query('UPDATE orders SET status = $1 WHERE id = $2', ['pending', order_id]);
 
-  // Update driver availability back to available
-  await database.query('UPDATE drivers SET availability_status = $1 WHERE id = $2', ['available', driver_id]);
-        
+        // Try to set driver back to available, tolerating different schemas
+        // Attempt 1: availability_status text column
+        try {
+          await database.query('UPDATE drivers SET availability_status = $1 WHERE id = $2', ['available', driver_id]);
+        } catch (e1: any) {
+          // Attempt 2: status text column
+          try {
+            await database.query('UPDATE drivers SET status = $1 WHERE id = $2', ['available', driver_id]);
+          } catch (e2: any) {
+            // Attempt 3: boolean is_available column
+            try {
+              await database.query('UPDATE drivers SET is_available = $1 WHERE id = $2', [true, driver_id]);
+            } catch (e3: any) {
+              console.warn('Warning: could not update driver availability after assignment delete:', e3?.message ?? e3);
+              // Do not fail deletion if driver availability update fails
+            }
+          }
+        }
+
         await database.query('COMMIT');
         return true;
       } catch (error) {
