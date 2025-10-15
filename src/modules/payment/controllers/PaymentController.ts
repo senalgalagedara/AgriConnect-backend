@@ -3,6 +3,8 @@ import { validationResult } from 'express-validator';
 import { PaymentService } from '../services/PaymentService';
 import { PaymentRequest, PaymentResponse } from '../../../types/entities';
 import { ApiResponse } from '../../../types/database';
+import { NotificationService } from '../../product/services/NotificationService';
+import { OrderService } from '../../order/services/OrderService';
 
 /**
  * Process payment for an order
@@ -78,6 +80,28 @@ export const processPayment = async (req: Request, res: Response): Promise<void>
     }
 
     const paymentResult = await PaymentService.processPayment(payload);
+
+    // Check for milestones after successful payment
+    if (paymentResult.order && (paymentResult.order as any).user_id) {
+      const userId = String((paymentResult.order as any).user_id);
+      
+      // Get user stats for milestone checks
+      const userIdNum = parseInt(req.body.userId || '0', 10);
+      if (userIdNum > 0) {
+        const stats = await OrderService.getUserOrderStats(userIdNum).catch(() => null);
+        if (stats) {
+          // Check earnings milestones
+          const totalEarnings = Number((stats as any).totalAmount || 0);
+          NotificationService.checkEarningsMilestones(userId, totalEarnings)
+            .catch(err => console.error('Failed to check earnings milestones:', err));
+          
+          // Check order count milestones (only count completed orders)
+          const completedOrders = Number((stats as any).totalOrders || 0);
+          NotificationService.checkOrderMilestones(userId, completedOrders)
+            .catch(err => console.error('Failed to check order milestones:', err));
+        }
+      }
+    }
 
     res.status(201).json({
       success: true,

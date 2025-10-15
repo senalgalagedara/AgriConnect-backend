@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
 import { SupplierService } from '../services/SupplierService';
+import { NotificationService } from '../../product/services/NotificationService';
+import { ProductService } from '../../product/services/ProductService';
 import { ApiResponse, CreateSupplierRequest, UpdateSupplierRequest, PaginationOptions, PaginatedResponse } from '../../../types';
 
 export class SupplierController {
@@ -200,6 +202,20 @@ export class SupplierController {
       };
 
       const newSupplier = await SupplierService.createSupplier(supplierData);
+
+      // Send notification for supplier adding stock (async, non-blocking)
+      if (newSupplier.product_id && newSupplier.quantity) {
+        const product = await ProductService.getProductById(newSupplier.product_id);
+        if (product) {
+          NotificationService.notifySupplierAddedStock(
+            newSupplier.product_id,
+            newSupplier.product_name || product.product_name,
+            newSupplier.farmer_name || 'Unknown Farmer',
+            newSupplier.quantity,
+            product.unit
+          ).catch(err => console.error('Failed to send supplier notification:', err));
+        }
+      }
 
       const response: ApiResponse = {
         success: true,

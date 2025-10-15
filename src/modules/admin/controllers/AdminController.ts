@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { OrderModel } from '../../order/models/OrderModel';
 import database from '../../../config/database';
 import { ApiResponse } from '../../../types/database';
+import { NotificationService } from '../../product/services/NotificationService';
 
 /**
  * Get orders for admin order list
@@ -100,12 +101,27 @@ export const deleteOrderById = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    // Attempt delete; rely on ON DELETE CASCADE for payments/order_items
-    const result = await database.query(`DELETE FROM orders WHERE id = $1 RETURNING id`, [orderId]);
-    if (result.rowCount === 0) {
+    // Get order details before deletion for notification
+    const orderResult = await database.query(`
+      SELECT id, order_no, total FROM orders WHERE id = $1
+    `, [orderId]);
+
+    if (orderResult.rowCount === 0) {
       res.status(404).json({ success: false, message: 'Order not found' } as ApiResponse);
       return;
     }
+
+    const order = orderResult.rows[0];
+
+    // Send notification before deleting (since cascade will remove it)
+    NotificationService.notifyOrderCancelled(
+      order.id,
+      order.order_no || order.id,
+      Number(order.total || 0)
+    ).catch(err => console.error('Failed to send cancellation notification:', err));
+
+    // Attempt delete; rely on ON DELETE CASCADE for payments/order_items
+    const result = await database.query(`DELETE FROM orders WHERE id = $1 RETURNING id`, [orderId]);
 
     res.status(204).send();
   } catch (error) {

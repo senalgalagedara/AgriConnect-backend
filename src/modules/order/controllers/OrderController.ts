@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { OrderService } from '../services/OrderService';
 import { ApiResponse } from '../../../types/database';
 import { Order } from '../../../types/entities';
+import { NotificationService } from '../../product/services/NotificationService';
 
 /**
  * Create a new order (checkout)
@@ -30,6 +31,18 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
     const method = paymentMethod || 'COD';
 
     const order = await OrderService.createOrder(userId, contact, shipping, method);
+
+    // Send notification for order placed
+    const orderWithItems = await OrderService.getOrderById(order.id);
+    if (orderWithItems) {
+      const itemCount = orderWithItems.items?.length || 0;
+      NotificationService.notifyOrderPlaced(
+        order.id,
+        (order as any).order_no || order.id,
+        (order as any).total || 0,
+        itemCount
+      ).catch(err => console.error('Failed to send order notification:', err));
+    }
 
     res.status(201).json({
       success: true,
@@ -67,6 +80,18 @@ export const checkout = async (req: Request, res: Response): Promise<void> => {
     const method = paymentMethod || 'COD';
 
     const order = await OrderService.createOrder(userId, contact, shipping, method);
+
+    // Send notification for order placed
+    const orderWithItems = await OrderService.getOrderById(order.id);
+    if (orderWithItems) {
+      const itemCount = orderWithItems.items?.length || 0;
+      NotificationService.notifyOrderPlaced(
+        order.id,
+        (order as any).order_no || order.id,
+        (order as any).total || 0,
+        itemCount
+      ).catch(err => console.error('Failed to send order notification:', err));
+    }
 
     res.status(201).json({
       success: true,
@@ -276,6 +301,13 @@ export const cancelOrder = async (req: Request, res: Response): Promise<void> =>
       } as ApiResponse);
       return;
     }
+
+    // Send notification for order cancellation
+    NotificationService.notifyOrderCancelled(
+      orderId,
+      (cancelledOrder as any).order_no || orderId,
+      (cancelledOrder as any).total || 0
+    ).catch(err => console.error('Failed to send cancellation notification:', err));
 
     res.status(200).json({
       success: true,

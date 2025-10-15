@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
 import { ProductService } from '../services/ProductService';
+import { NotificationService } from '../services/NotificationService';
 import { ApiResponse, CreateProductRequest, UpdateProductRequest, PaginationOptions } from '../../../types';
 
 export class ProductController {
@@ -154,6 +155,15 @@ export class ProductController {
       const productData: CreateProductRequest = req.body;
       const product = await ProductService.createProduct(productData);
 
+      // Send notification for new product (async, non-blocking)
+      if (product.id && product.product_name) {
+        NotificationService.notifyNewProduct(
+          product.id,
+          product.product_name,
+          product.province_name || 'Unknown'
+        ).catch(err => console.error('Failed to send new product notification:', err));
+      }
+
       const response: ApiResponse = {
         success: true,
         data: product,
@@ -199,6 +209,10 @@ export class ProductController {
       }
 
       const updateData: UpdateProductRequest = req.body;
+      
+      // Get old product data to compare stock changes
+      const oldProduct = await ProductService.getProductById(id);
+      
       const product = await ProductService.updateProduct(id, updateData);
 
       if (!product) {
@@ -208,6 +222,18 @@ export class ProductController {
         };
         res.status(404).json(response);
         return;
+      }
+
+      // Send notification if stock was updated
+      if (oldProduct && updateData.current_stock !== undefined && 
+          oldProduct.current_stock !== product.current_stock) {
+        NotificationService.notifyStockUpdated(
+          product.id,
+          product.product_name,
+          oldProduct.current_stock,
+          product.current_stock,
+          product.unit
+        ).catch(err => console.error('Failed to send stock update notification:', err));
       }
 
       const response: ApiResponse = {
@@ -250,6 +276,9 @@ export class ProductController {
         return;
       }
 
+      // Get old product for comparison
+      const oldProduct = await ProductService.getProductById(id);
+      
       const product = await ProductService.updateProductStock(id, stockChange);
 
       if (!product) {
@@ -259,6 +288,17 @@ export class ProductController {
         };
         res.status(404).json(response);
         return;
+      }
+
+      // Send notification for stock update
+      if (oldProduct) {
+        NotificationService.notifyStockUpdated(
+          product.id,
+          product.product_name,
+          oldProduct.current_stock,
+          product.current_stock,
+          product.unit
+        ).catch(err => console.error('Failed to send stock update notification:', err));
       }
 
       const response: ApiResponse = {

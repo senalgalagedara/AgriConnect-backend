@@ -11,6 +11,7 @@ import database from './config/database';
 import feedbackRoutes from './modules/feedback/routes/feedbackRoutes';
 import provinceRoutes from './modules/province/routes/provinceRoutes';
 import productRoutes from './modules/product/routes/productRoutes';
+import notificationRoutes from './modules/product/routes/notificationRoutes';
 import farmerRoutes from './modules/farmer/routes/farmerRoutes';
 import supplierRoutes from './modules/supplier/routes/supplierRoutes';
 
@@ -25,6 +26,7 @@ import dashboardRoutes from './modules/dashboard/routes/dashboardRoutes';
 import authRoutes from './modules/auth/routes/authRoutes';
 import { sessionMiddleware } from './modules/auth/middleware/session';
 import { FeedbackModel } from './modules/feedback/models/FeedbackModel';
+import { setupNotificationCron } from './config/notificationCron';
 
 const app: Application = express();
 const PORT = process.env.PORT || 5000;
@@ -60,6 +62,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/feedback', feedbackRoutes); // New TypeScript feedback routes
 app.use('/api/provinces', provinceRoutes); // New TypeScript province routes
 app.use('/api/products', productRoutes); // New TypeScript product routes
+app.use('/api/notifications', notificationRoutes); // Product notifications
 app.use('/api/farmers', farmerRoutes); // New TypeScript farmer routes
 app.use('/api/suppliers', supplierRoutes); // New TypeScript supplier routes
 app.use('/api/cart', cartRoutes);
@@ -149,6 +152,9 @@ app.listen(PORT, () => {
   console.log(`Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`Health check: http://localhost:${PORT}/api/health`);
+  
+  // Set up notification cron jobs
+  setupNotificationCron();
 });
 
 // Diagnostics: log unexpected exits
