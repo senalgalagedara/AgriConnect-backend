@@ -1,5 +1,7 @@
 import { AssignmentModel } from '../models/AssignmentModel';
 import { Assignment, CreateAssignmentRequest, UpdateAssignmentRequest } from '../../../types/entities';
+import { NotificationService } from '../../product/services/NotificationService';
+import database from '../../../config/database';
 
 export class AssignmentService {
   /**
@@ -61,7 +63,38 @@ export class AssignmentService {
         throw new Error('Special notes cannot exceed 500 characters');
       }
 
-      return await AssignmentModel.create(assignmentData);
+      const assignment = await AssignmentModel.create(assignmentData);
+
+      // Get driver and order details for notification
+      try {
+        const driverResult = await database.query(
+          'SELECT first_name, last_name, contact_number FROM drivers WHERE id = $1',
+          [assignmentData.driverId]
+        );
+        const orderResult = await database.query(
+          'SELECT order_no FROM orders WHERE id = $1',
+          [assignmentData.orderId]
+        );
+
+        if (driverResult.rows.length > 0 && orderResult.rows.length > 0) {
+          const driver = driverResult.rows[0];
+          const order = orderResult.rows[0];
+          const driverName = `${driver.first_name} ${driver.last_name}`;
+          
+          // Send notification (async, non-blocking)
+          NotificationService.notifyDriverAssigned(
+            assignmentData.orderId,
+            order.order_no,
+            driverName,
+            driver.contact_number
+          ).catch(err => console.error('Failed to send driver assignment notification:', err));
+        }
+      } catch (notifError) {
+        console.error('Error fetching data for notification:', notifError);
+        // Don't throw - notification failure shouldn't break assignment
+      }
+
+      return assignment;
     } catch (error) {
       console.error('Error in AssignmentService.createAssignment:', error);
       throw error instanceof Error ? error : new Error('Failed to create assignment');

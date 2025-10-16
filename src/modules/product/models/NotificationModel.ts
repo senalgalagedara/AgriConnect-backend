@@ -168,23 +168,37 @@ export class NotificationModel {
   static async getUnreadNotifications(): Promise<ProductNotification[]> {
     try {
       const result = await database.query(`
-        SELECT 
-          n.*,
+        SELECT
+          n.id,
+          n.product_id,
+          n.order_id,
+          n.notification_type,
+          n.message,
+          n.is_read,
+          n.created_at,
+          n.updated_at,
           p.product_name,
           p.current_stock,
           prov.name as province_name,
           o.order_no,
           o.total as order_total,
-          d.name as driver_name,
-          d.phone_number as driver_phone
+          CONCAT(d.first_name, ' ', d.last_name) as driver_name,
+          d.contact_number as driver_phone
         FROM notifications n
         LEFT JOIN products p ON n.product_id = p.id
         LEFT JOIN provinces prov ON p.province_id = prov.id
         LEFT JOIN orders o ON n.order_id = o.id
-        LEFT JOIN assignments a ON n.order_id = a.order_id
+        LEFT JOIN LATERAL (
+          SELECT driver_id 
+          FROM assignments 
+          WHERE order_id = n.order_id 
+            AND status != 'cancelled'
+          ORDER BY created_at DESC 
+          LIMIT 1
+        ) a ON true
         LEFT JOIN drivers d ON a.driver_id = d.id
         WHERE n.is_read = false
-        ORDER BY n.created_at DESC
+        ORDER BY n.created_at DESC, n.id DESC
       `);
       
       return result.rows;
@@ -200,22 +214,36 @@ export class NotificationModel {
   static async getAllNotifications(limit: number = 50): Promise<ProductNotification[]> {
     try {
       const result = await database.query(`
-        SELECT 
-          n.*,
+        SELECT
+          n.id,
+          n.product_id,
+          n.order_id,
+          n.notification_type,
+          n.message,
+          n.is_read,
+          n.created_at,
+          n.updated_at,
           p.product_name,
           p.current_stock,
           prov.name as province_name,
           o.order_no,
           o.total as order_total,
-          d.name as driver_name,
-          d.phone_number as driver_phone
+          CONCAT(d.first_name, ' ', d.last_name) as driver_name,
+          d.contact_number as driver_phone
         FROM notifications n
         LEFT JOIN products p ON n.product_id = p.id
         LEFT JOIN provinces prov ON p.province_id = prov.id
         LEFT JOIN orders o ON n.order_id = o.id
-        LEFT JOIN assignments a ON n.order_id = a.order_id
+        LEFT JOIN LATERAL (
+          SELECT driver_id 
+          FROM assignments 
+          WHERE order_id = n.order_id 
+            AND status != 'cancelled'
+          ORDER BY created_at DESC 
+          LIMIT 1
+        ) a ON true
         LEFT JOIN drivers d ON a.driver_id = d.id
-        ORDER BY n.created_at DESC
+        ORDER BY n.created_at DESC, n.id DESC
         LIMIT $1
       `, [limit]);
       

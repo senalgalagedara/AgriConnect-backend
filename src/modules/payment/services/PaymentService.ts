@@ -1,5 +1,6 @@
 import { OrderModel } from '../../order/models/OrderModel';
 import { PaymentRequest, PaymentResponse, InvoiceInfo } from '../../../types/entities';
+import { NotificationService } from '../../product/services/NotificationService';
 
 export class PaymentService {
   /**
@@ -83,6 +84,20 @@ export class PaymentService {
     } catch (error) {
       console.error('Error in PaymentService.processPayment:', error);
       throw error instanceof Error ? error : new Error('Failed to process payment');
+    }
+  }
+
+  /**
+   * Delete payment record and create notification
+   */
+  static async deletePayment(paymentId: number, orderId: number, orderNo: number): Promise<void> {
+    try {
+      // Create notification for payment deletion
+      const message = `💳 Payment record for Order #${orderNo} has been deleted from the system.`;
+      await NotificationService.notifyOrderCancelled(orderId, orderNo, 0);
+    } catch (error) {
+      console.error('Error in PaymentService.deletePayment:', error);
+      // Don't throw - notification failure shouldn't break deletion
     }
   }
 

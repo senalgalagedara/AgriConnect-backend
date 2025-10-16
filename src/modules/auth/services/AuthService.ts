@@ -1,6 +1,5 @@
 import bcrypt from 'bcryptjs';
 import database from '../../../config/database';
-import { sanitizeUser } from '../middleware/session';
 
 export interface CreateUserInput {
   email: string;
@@ -54,4 +53,20 @@ export class AuthService {
     const { rows } = await database.query('SELECT * FROM users WHERE id = $1', [id]);
     return rows.length ? sanitizeUser(rows[0]) : null;
   }
+}
+
+// Local sanitizeUser helper (session middleware removed)
+export function sanitizeUser(row: any) {
+  return {
+    id: typeof row.id === 'string' ? parseInt(row.id, 10) || row.id : row.id,
+    email: row.email,
+    role: row.role,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    contactNumber: row.contact_number,
+    address: row.address,
+    status: row.status || 'active',
+    createdAt: row.created_at instanceof Date ? row.created_at : new Date(row.created_at),
+    updatedAt: row.updated_at instanceof Date ? row.updated_at : new Date(row.updated_at)
+  };
 }

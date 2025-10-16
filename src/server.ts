@@ -4,7 +4,6 @@ dotenv.config();
 
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
-import cookieParser from 'cookie-parser';
 import database from './config/database';
 
 // Import TypeScript routes
@@ -24,7 +23,6 @@ import driverRoutes from './modules/driver/routes/driverRoutes';
 import assignmentRoutes from './modules/assignment/routes/assignmentRoutes';
 import dashboardRoutes from './modules/dashboard/routes/dashboardRoutes';
 import authRoutes from './modules/auth/routes/authRoutes';
-import { sessionMiddleware } from './modules/auth/middleware/session';
 import { FeedbackModel } from './modules/feedback/models/FeedbackModel';
 import { setupNotificationCron } from './config/notificationCron';
 
@@ -46,9 +44,7 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());
-// Attach session middleware early so downstream routes have currentUser
-app.use(sessionMiddleware);
+// Sessions removed: do not parse cookies or attach session middleware
 
 // Test database connection
 database.query('SELECT NOW()')

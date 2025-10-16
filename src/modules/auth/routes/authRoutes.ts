@@ -1,5 +1,4 @@
 import { Router, Request, Response } from 'express';
-import { sessionMiddleware, createSession, deleteSession } from '../middleware/session';
 import { AuthService } from '../services/AuthService';
 
 const router = Router();
@@ -46,16 +45,7 @@ router.post('/signup', async (req: Request, res: Response) => {
       contactNumber: contactNumber || undefined,
       address: address || undefined
     });
-    const session = await createSession(user.id, req.ip, req.headers['user-agent']);
-
-    res.cookie('sid', session.id, {
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/',
-      secure: false, // set true when behind HTTPS
-      maxAge: 30 * 24 * 60 * 60 * 1000
-    });
-
+    // Sessions removed: return created user. Token-based auth should be implemented separately.
     return res.status(201).json({ success: true, user });
   } catch (err: any) {
     if (err?.code === '23505') {
@@ -78,14 +68,7 @@ router.post('/login', async (req: Request, res: Response) => {
     if (!user) {
       return res.status(401).json({ success: false, code: 'INVALID_CREDENTIALS', message: 'Invalid email or password' });
     }
-    const session = await createSession(user.id, req.ip, req.headers['user-agent']);
-    res.cookie('sid', session.id, {
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/',
-      secure: false,
-      maxAge: 30 * 24 * 60 * 60 * 1000
-    });
+    // Sessions removed: return authenticated user. Implement token issuance if needed.
     return res.json({ success: true, user });
   } catch (err) {
     console.error('[login] error', err);
@@ -94,13 +77,9 @@ router.post('/login', async (req: Request, res: Response) => {
 });
 
 // POST /logout
-router.post('/logout', sessionMiddleware, async (req: Request, res: Response) => {
+router.post('/logout', async (req: Request, res: Response) => {
   try {
-    const sid = (req as any).cookies?.sid;
-    if (sid) {
-      await deleteSession(sid);
-      res.clearCookie('sid');
-    }
+    // Sessions removed: nothing to clear server-side. Clients should drop tokens locally.
     return res.json({ success: true });
   } catch (err) {
     console.error('[logout] error', err);
@@ -109,11 +88,7 @@ router.post('/logout', sessionMiddleware, async (req: Request, res: Response) =>
 });
 
 // GET /session
-router.get('/session', sessionMiddleware, async (req: Request, res: Response) => {
-  if (!req.currentUser) {
-    return res.status(401).json({ success: false, message: 'Not authenticated' });
-  }
-  return res.json({ success: true, user: req.currentUser });
-});
+// /session endpoint removed - session-based auth has been removed.
+// Consider implementing a token introspection endpoint if you move to JWTs or stateless tokens.
 
 export default router;
