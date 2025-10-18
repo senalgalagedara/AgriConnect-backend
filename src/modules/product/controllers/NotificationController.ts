@@ -4,9 +4,6 @@ import { ApiResponse } from '../../../types';
 
 export class NotificationController {
 
-  /**
-   * Trigger notification check (can be called manually or via cron)
-   */
   static async checkNotifications(req: Request, res: Response): Promise<void> {
     try {
       await NotificationService.checkAndCreateNotifications();
@@ -27,9 +24,7 @@ export class NotificationController {
     }
   }
 
-  /**
-   * Get all unread notifications
-   */
+
   static async getUnreadNotifications(req: Request, res: Response): Promise<void> {
     try {
       const notifications = await NotificationService.getUnreadNotifications();
@@ -51,9 +46,6 @@ export class NotificationController {
     }
   }
 
-  /**
-   * Get all notifications
-   */
   static async getAllNotifications(req: Request, res: Response): Promise<void> {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
@@ -76,9 +68,7 @@ export class NotificationController {
     }
   }
 
-  /**
-   * Get unread notification count
-   */
+ 
   static async getUnreadCount(req: Request, res: Response): Promise<void> {
     try {
       const count = await NotificationService.getUnreadCount();
@@ -100,9 +90,7 @@ export class NotificationController {
     }
   }
 
-  /**
-   * Mark notification as read
-   */
+
   static async markAsRead(req: Request, res: Response): Promise<void> {
     try {
       const id = parseInt(req.params.id);
@@ -144,9 +132,7 @@ export class NotificationController {
     }
   }
 
-  /**
-   * Mark all notifications as read
-   */
+
   static async markAllAsRead(req: Request, res: Response): Promise<void> {
     try {
       const count = await NotificationService.markAllAsRead();
@@ -168,9 +154,6 @@ export class NotificationController {
     }
   }
 
-  /**
-   * Delete a notification
-   */
   static async deleteNotification(req: Request, res: Response): Promise<void> {
     try {
       const id = parseInt(req.params.id);

@@ -125,9 +125,7 @@ export class NotificationService {
     }
   }
 
-  /**
-   * Get unread notification count
-   */
+  
   static async getUnreadCount(): Promise<number> {
     try {
       return await NotificationModel.getUnreadCount();
@@ -137,9 +135,7 @@ export class NotificationService {
     }
   }
 
-  /**
-   * Clean up old read notifications
-   */
+
   static async cleanupOldNotifications(days: number = 30): Promise<number> {
     try {
       return await NotificationModel.deleteOldReadNotifications(days);
@@ -149,9 +145,7 @@ export class NotificationService {
     }
   }
 
-  /**
-   * Create notification when new product is added
-   */
+
   static async notifyNewProduct(productId: number, productName: string, provinceName: string): Promise<void> {
     try {
       const message = `New product "${productName}" has been added to ${provinceName} province inventory.`;
@@ -162,9 +156,7 @@ export class NotificationService {
     }
   }
 
-  /**
-   * Create notification when supplier adds products
-   */
+
   static async notifySupplierAddedStock(
     productId: number, 
     productName: string, 
@@ -177,13 +169,10 @@ export class NotificationService {
       await NotificationModel.create(productId, 'supplier_added', message);
     } catch (error) {
       console.error('Error in NotificationService.notifySupplierAddedStock:', error);
-      // Don't throw error - notification failure shouldn't break supplier creation
     }
   }
 
-  /**
-   * Create notification when product stock is updated
-   */
+ 
   static async notifyStockUpdated(
     productId: number,
     productName: string,
@@ -198,13 +187,9 @@ export class NotificationService {
       await NotificationModel.create(productId, 'stock_updated', message);
     } catch (error) {
       console.error('Error in NotificationService.notifyStockUpdated:', error);
-      // Don't throw error - notification failure shouldn't break stock update
     }
   }
 
-  /**
-   * Create notification when order is placed
-   */
   static async notifyOrderPlaced(
     orderId: number,
     orderNo: number,
@@ -216,13 +201,9 @@ export class NotificationService {
       await NotificationModel.createOrderNotification(orderId, 'order_placed', message);
     } catch (error) {
       console.error('Error in NotificationService.notifyOrderPlaced:', error);
-      // Don't throw error - notification failure shouldn't break order creation
     }
   }
 
-  /**
-   * Create notification when order is cancelled
-   */
   static async notifyOrderCancelled(
     orderId: number,
     orderNo: number,
@@ -233,13 +214,10 @@ export class NotificationService {
       await NotificationModel.createOrderNotification(orderId, 'order_cancelled', message);
     } catch (error) {
       console.error('Error in NotificationService.notifyOrderCancelled:', error);
-      // Don't throw error - notification failure shouldn't break order cancellation
     }
   }
 
-  /**
-   * Check and create milestone notifications for earnings
-   */
+
   static async checkEarningsMilestones(userId: string, totalEarnings: number): Promise<void> {
     try {
       const milestones = [1000, 5000, 10000, 25000, 50000, 100000, 250000, 500000, 1000000];

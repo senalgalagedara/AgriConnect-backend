@@ -19,7 +19,6 @@ export interface ProductNotification {
   is_read: boolean;
   created_at: Date;
   updated_at: Date;
-  // Joined fields
   product_name?: string;
   province_name?: string;
   current_stock?: number;
@@ -32,18 +31,14 @@ export interface ProductNotification {
 }
 
 export class NotificationModel {
-  
-  /**
-   * Create a new product notification
-   */
+
   static async create(
     productId: number,
     type: 'expired' | 'low_stock' | 'new_product' | 'supplier_added' | 'stock_updated',
     message: string
   ): Promise<ProductNotification> {
     try {
-      // For new_product, supplier_added, and stock_updated, always create new notification
-      // For expired and low_stock, use ON CONFLICT to avoid duplicates
+    
       const shouldUseDuplicateCheck = ['expired', 'low_stock'].includes(type);
       
       let result;
@@ -59,7 +54,6 @@ export class NotificationModel {
           RETURNING *
         `, [productId, type, message]);
       } else {
-        // Always create new notification for events
         result = await database.query(`
           INSERT INTO notifications (product_id, notification_type, message, is_read, created_at, updated_at)
           VALUES ($1, $2, $3, false, NOW(), NOW())
@@ -74,9 +68,6 @@ export class NotificationModel {
     }
   }
 
-  /**
-   * Create a new order notification
-   */
   static async createOrderNotification(
     orderId: number,
     type: 'order_placed' | 'order_cancelled' | 'driver_assigned' | 'milestone_earnings' | 'milestone_orders',
@@ -96,9 +87,6 @@ export class NotificationModel {
     }
   }
 
-  /**
-   * Create a milestone notification (no order_id or product_id)
-   */
   static async createMilestoneNotification(
     type: 'milestone_earnings' | 'milestone_orders',
     message: string
@@ -117,9 +105,6 @@ export class NotificationModel {
     }
   }
 
-  /**
-   * Record milestone achievement to prevent duplicates
-   */
   static async recordMilestone(
     userId: string,
     milestoneType: 'earnings' | 'orders',
@@ -139,9 +124,7 @@ export class NotificationModel {
     }
   }
 
-  /**
-   * Check if milestone has been achieved
-   */
+
   static async hasMilestoneBeenAchieved(
     userId: string,
     milestoneType: 'earnings' | 'orders',
@@ -158,13 +141,10 @@ export class NotificationModel {
       return result.rows[0].exists;
     } catch (error) {
       console.error('Error in NotificationModel.hasMilestoneBeenAchieved:', error);
-      return true; // Return true to avoid duplicate notifications on error
+      return true; 
     }
   }
 
-  /**
-   * Get all unread notifications with product, order and driver details
-   */
   static async getUnreadNotifications(): Promise<ProductNotification[]> {
     try {
       const result = await database.query(`
@@ -208,9 +188,7 @@ export class NotificationModel {
     }
   }
 
-  /**
-   * Get all notifications (read and unread)
-   */
+
   static async getAllNotifications(limit: number = 50): Promise<ProductNotification[]> {
     try {
       const result = await database.query(`
@@ -254,9 +232,6 @@ export class NotificationModel {
     }
   }
 
-  /**
-   * Mark notification as read
-   */
   static async markAsRead(id: number): Promise<ProductNotification | null> {
     try {
       const result = await database.query(`
@@ -273,9 +248,7 @@ export class NotificationModel {
     }
   }
 
-  /**
-   * Mark all notifications as read
-   */
+
   static async markAllAsRead(): Promise<number> {
     try {
       const result = await database.query(`
@@ -291,9 +264,6 @@ export class NotificationModel {
     }
   }
 
-  /**
-   * Delete notification
-   */
   static async delete(id: number): Promise<boolean> {
     try {
       const result = await database.query(`
@@ -308,9 +278,6 @@ export class NotificationModel {
     }
   }
 
-  /**
-   * Get unread notification count
-   */
   static async getUnreadCount(): Promise<number> {
     try {
       const result = await database.query(`
@@ -326,9 +293,6 @@ export class NotificationModel {
     }
   }
 
-  /**
-   * Delete read notifications older than specified days
-   */
   static async deleteOldReadNotifications(days: number = 30): Promise<number> {
     try {
       const result = await database.query(`
